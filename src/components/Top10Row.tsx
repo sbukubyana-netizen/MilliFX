@@ -15,11 +15,11 @@ const Top10Row: React.FC<Top10RowProps> = ({ id, items, userStats, onLike, onSel
   return (
     <div className="py-12 space-y-3" id={id}>
       <div className="px-6 md:px-12 flex items-center justify-between">
-        <div className="flex flex-col">
-          <h3 className="text-xl md:text-3xl font-black text-text-main flex items-center gap-2 italic tracking-tighter">
+        <div className="flex flex-col pb-0">
+          <h3 className="text-xl md:text-3xl font-black text-text-main flex items-center gap-2 italic tracking-tighter mb-0 pb-0">
             Global Top 10 <span className="text-accent not-italic">🔥</span>
           </h3>
-          <p className="text-text-dim text-[10px] font-bold uppercase tracking-widest mt-1">Based on your recent binge-watching & likes</p>
+          <p className="text-text-dim text-[10px] font-bold uppercase tracking-widest mt-0.5">Based on your recent binge-watching & likes</p>
         </div>
         <button 
           onClick={() => onSelect(items[0], items)}

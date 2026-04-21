@@ -25,11 +25,13 @@ export default function App() {
   const [stage, setStage] = useState<AppStage>('profile-selection');
   const [selectedMemoryIndex, setSelectedMemoryIndex] = useState<number | null>(null);
   const [currentCollection, setCurrentCollection] = useState<Memory[]>([]);
+  const [activeEpisodeId, setActiveEpisodeId] = useState<string | null>(null);
   const [isMusicPaused, setIsMusicPaused] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [mood, setMood] = useState('romantic');
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [isSlideshowPaused, setIsSlideshowPaused] = useState(false);
+  const [showTbaEpisode, setShowTbaEpisode] = useState<Episode | null>(null);
 
   // View & Like Tracking State
   const [userStats, setUserStats] = useState<{ [key: string]: { views: number, likes: number } }>(() => {
@@ -37,9 +39,34 @@ export default function App() {
     return saved ? JSON.parse(saved) : {};
   });
 
+  const [continueWatching, setContinueWatching] = useState<{ episodeId: string, index: number, timestamp: number }[]>(() => {
+    const saved = localStorage.getItem('millifix_continue');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   useEffect(() => {
     localStorage.setItem('millifix_stats', JSON.stringify(userStats));
   }, [userStats]);
+
+  useEffect(() => {
+    localStorage.setItem('millifix_continue', JSON.stringify(continueWatching));
+  }, [continueWatching]);
+
+  const updateContinueWatching = useCallback((episodeId: string, index: number) => {
+    setContinueWatching(prev => {
+      const filtered = prev.filter(item => item.episodeId !== episodeId);
+      // Only add if not at the end of the collection
+      const episode = EPISODES.find(e => e.id === episodeId);
+      if (episode && index < episode.images.length - 1) {
+        return [{ episodeId, index, timestamp: Date.now() }, ...filtered].slice(0, 10);
+      }
+      return filtered;
+    });
+  }, []);
+
+  const clearContinueWatching = useCallback((episodeId: string) => {
+    setContinueWatching(prev => prev.filter(item => item.episodeId !== episodeId));
+  }, []);
 
   const handleLike = useCallback((id: string) => {
     setUserStats(prev => ({
@@ -60,6 +87,16 @@ export default function App() {
       }
     }));
   }, []);
+
+  const handlePlayAll = useCallback(() => {
+    const allMemories = EPISODES.reduce((acc, ep) => [...acc, ...ep.images], [] as Memory[]);
+    if (allMemories.length > 0) {
+      setCurrentCollection(allMemories);
+      setSelectedMemoryIndex(0);
+      setIsSlideshowPaused(false);
+      handleView(allMemories[0].id);
+    }
+  }, [handleView]);
 
   const selectedMemory = selectedMemoryIndex !== null ? currentCollection[selectedMemoryIndex] : null;
 
@@ -92,25 +129,51 @@ export default function App() {
     setIsMusicPaused(false); // Resume music for home
   }, []);
 
-  const handleSelectMemory = useCallback((item: Memory, collection: Memory[]) => {
+  const handleSelectMemory = useCallback((item: Memory, collection: Memory[], episodeId?: string) => {
     const index = collection.findIndex(m => m.id === item.id);
     setCurrentCollection(collection);
     setSelectedMemoryIndex(index);
+    setActiveEpisodeId(episodeId || null);
     setIsSlideshowPaused(false); // Reset pause state when starting new
     handleView(item.id); // Track view
   }, [handleView]);
 
+  const handleSelectEpisode = useCallback((episode: Episode) => {
+    if (episode.images.length === 0) {
+      setShowTbaEpisode(episode);
+      return;
+    }
+    
+    // Check if we have progress for this episode
+    const progress = continueWatching.find(p => p.episodeId === episode.id);
+    const startIndex = progress ? progress.index : 0;
+    
+    handleSelectMemory(episode.images[startIndex], episode.images, episode.id);
+  }, [continueWatching, handleSelectMemory]);
+
   const handleNextMemory = useCallback(() => {
     if (selectedMemoryIndex !== null && selectedMemoryIndex < currentCollection.length - 1) {
-      setSelectedMemoryIndex(prev => prev !== null ? prev + 1 : null);
+      const nextIndex = selectedMemoryIndex + 1;
+      setSelectedMemoryIndex(nextIndex);
+      if (activeEpisodeId) {
+        updateContinueWatching(activeEpisodeId, nextIndex);
+      }
+    } else if (selectedMemoryIndex === currentCollection.length - 1) {
+      if (activeEpisodeId) {
+        clearContinueWatching(activeEpisodeId);
+      }
     }
-  }, [selectedMemoryIndex, currentCollection.length]);
+  }, [selectedMemoryIndex, currentCollection.length, activeEpisodeId, updateContinueWatching, clearContinueWatching]);
 
   const handlePrevMemory = useCallback(() => {
     if (selectedMemoryIndex !== null && selectedMemoryIndex > 0) {
-      setSelectedMemoryIndex(prev => prev !== null ? prev - 1 : null);
+      const nextIndex = selectedMemoryIndex - 1;
+      setSelectedMemoryIndex(nextIndex);
+      if (activeEpisodeId) {
+        updateContinueWatching(activeEpisodeId, nextIndex);
+      }
     }
-  }, [selectedMemoryIndex]);
+  }, [selectedMemoryIndex, activeEpisodeId, updateContinueWatching]);
 
   // Autoplay Effect
   useEffect(() => {
@@ -196,7 +259,7 @@ export default function App() {
             <Navbar theme={theme} toggleTheme={toggleTheme} mood={mood} setMood={setMood} />
             
             <main>
-              <HeroBanner />
+              <HeroBanner onPlayAll={handlePlayAll} />
               
               <div className="relative -mt-32 md:-mt-48 z-20 pb-20">
                 {CATEGORIES.map((category) => {
@@ -222,42 +285,53 @@ export default function App() {
                       id={categoryId}
                       title={category} 
                       episodes={episodes} 
-                      onSelectEpisode={(ep) => handleSelectMemory(ep.images[0], ep.images)} 
+                      onSelectEpisode={handleSelectEpisode} 
                     />
                   );
                 })}
 
-                {/* Continue Watching Section */}
-                <div className="py-6 space-y-3">
-                  <h3 className="text-lg md:text-xl font-bold px-6 md:px-12">
-                    Continue Watching
-                  </h3>
-                  <div className="px-6 md:px-12 flex gap-4 overflow-x-auto no-scrollbar">
-                    <motion.div 
-                      whileHover={{ scale: 1.05 }}
-                      className="group relative flex-shrink-0 w-64 md:w-80 h-36 md:h-44 rounded shadow-lg overflow-hidden bg-card-bg cursor-pointer"
-                    >
-                      <img 
-                        src="https://picsum.photos/seed/milli-continue/800/400" 
-                        alt="Your Smile" 
-                        className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute inset-0 bg-linear-to-t from-black via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                        <h4 className="text-white font-bold text-xs mb-0.5">Your Smile – Episode 3 (98% match)</h4>
-                        <p className="text-text-dim text-[10px] mb-2 font-medium">15m remaining</p>
-                        <div className="w-full h-[3px] bg-zinc-700/50 rounded-full overflow-hidden">
+                {/* Dynamic Continue Watching Section */}
+                {continueWatching.length > 0 && (
+                  <div className="py-6 space-y-3" id="continue-watching">
+                    <h3 className="text-lg md:text-xl font-bold px-6 md:px-12 text-text-main">
+                      Continue Watching
+                    </h3>
+                    <div className="px-6 md:px-12 flex gap-4 overflow-x-auto no-scrollbar pb-4">
+                      {continueWatching.map((item) => {
+                        const episode = EPISODES.find(e => e.id === item.episodeId);
+                        if (!episode) return null;
+                        const progressPercent = Math.round(((item.index + 1) / episode.images.length) * 100);
+                        
+                        return (
                           <motion.div 
-                            initial={{ width: 0 }}
-                            animate={{ width: '65%' }}
-                            transition={{ duration: 2, delay: 1 }}
-                            className="h-full bg-accent shadow-[0_0_8px_var(--color-accent)]" 
-                          />
-                        </div>
-                      </div>
-                    </motion.div>
+                            key={item.episodeId}
+                            whileHover={{ scale: 1.05 }}
+                            onClick={() => handleSelectEpisode(episode)}
+                            className="group relative flex-shrink-0 w-64 md:w-80 h-36 md:h-44 rounded shadow-lg overflow-hidden bg-card-bg cursor-pointer border border-white/5"
+                          >
+                            <img 
+                              src={episode.images[item.index]?.imageUrl || episode.previewImageUrl} 
+                              alt={episode.title} 
+                              className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all"
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="absolute inset-0 bg-linear-to-t from-black via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                              <h4 className="text-white font-bold text-xs mb-0.5">{episode.title} – Slide {item.index + 1}</h4>
+                              <p className="text-text-dim text-[10px] mb-2 font-medium">{episode.images.length - item.index - 1} frames remaining</p>
+                              <div className="w-full h-[3px] bg-zinc-700/50 rounded-full overflow-hidden">
+                                <motion.div 
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${progressPercent}%` }}
+                                  className="h-full bg-accent shadow-[0_0_8px_var(--color-accent)]" 
+                                />
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               <CreditsSection />
@@ -283,7 +357,10 @@ export default function App() {
 
             <ImageModal 
               item={selectedMemory} 
-              onClose={() => setSelectedMemoryIndex(null)}
+              onClose={() => {
+                setSelectedMemoryIndex(null);
+                setActiveEpisodeId(null);
+              }}
               onNext={handleNextMemory}
               onPrev={handlePrevMemory}
               isPaused={isSlideshowPaused}
@@ -291,6 +368,56 @@ export default function App() {
               hasNext={selectedMemoryIndex !== null && selectedMemoryIndex < currentCollection.length - 1}
               hasPrev={selectedMemoryIndex !== null && selectedMemoryIndex > 0}
             />
+
+            {/* TBA / Coming Soon Modal */}
+            <AnimatePresence>
+              {showTbaEpisode && (
+                <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+                    onClick={() => setShowTbaEpisode(null)}
+                  />
+                  <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    className="relative bg-bg-deep border border-white/10 p-12 rounded-lg shadow-2xl max-w-xl w-full text-center space-y-8"
+                  >
+                    <div className="space-y-2">
+                       <span className="text-accent font-black uppercase tracking-[0.4em] text-[10px]">Millifix Originals</span>
+                       <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter">{showTbaEpisode.title}</h2>
+                       <p className="text-text-dim text-xs font-bold uppercase tracking-widest italic">{showTbaEpisode.description}</p>
+                    </div>
+
+                    <div className="py-12 border-y border-white/5 space-y-4">
+                       <div className="text-6xl md:text-8xl font-black text-white/5 select-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 tracking-tighter">TBA</div>
+                       <p className="text-white text-xl md:text-2xl font-light tracking-tight italic">
+                         "The best stories are worth waiting for..."
+                       </p>
+                       <div className="flex items-center justify-center gap-3">
+                         <div className="h-0.5 w-12 bg-accent/50" />
+                         <span className="text-accent font-bold uppercase tracking-widest text-[9px] animate-pulse">Coming Soon</span>
+                         <div className="h-0.5 w-12 bg-accent/50" />
+                       </div>
+                    </div>
+
+                    <p className="text-text-dim text-sm leading-relaxed max-w-sm mx-auto">
+                      Production for this episode is currently in progress. Stay tuned for the release in the next season!
+                    </p>
+
+                    <button 
+                      onClick={() => setShowTbaEpisode(null)}
+                      className="bg-white text-black px-10 py-3 rounded-sm font-black uppercase tracking-widest text-[11px] hover:bg-zinc-200 transition-colors"
+                    >
+                      Return to Gallery
+                    </button>
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
 
             <AnimatePresence>
               {isQuizOpen && (
@@ -363,6 +490,11 @@ export default function App() {
           padding-top: 2rem;
           padding-bottom: 4rem;
           background: linear-gradient(to right, transparent, rgba(var(--color-accent-rgb), 0.03), transparent);
+        }
+        #continue-watching {
+          padding-top: 2rem;
+          padding-bottom: 4rem;
+          background: linear-gradient(to right, rgba(255,255,255,0.02), transparent);
         }
       `}</style>
     </div>

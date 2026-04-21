@@ -38,7 +38,7 @@ export default function TrailerPlayer({ onComplete }: TrailerPlayerProps) {
     <div className="relative h-screen w-screen bg-black flex items-center justify-center overflow-hidden">
       <video
         ref={videoRef}
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full object-contain"
         onEnded={onComplete}
         onError={() => setVideoError(true)}
         muted={isMuted}
