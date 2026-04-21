@@ -24,7 +24,7 @@ export default function HeroBanner({ onPlayAll }: HeroBannerProps) {
   };
 
   return (
-    <div className="relative h-[400px] mx-6 md:mx-12 mt-24 rounded-lg overflow-hidden z-10">
+    <div className="relative aspect-video md:max-h-[650px] md:h-auto mx-4 md:mx-12 mt-20 md:mt-24 rounded-lg shadow-2xl overflow-hidden z-10">
       {/* Cinematic Background Video Slideshow */}
       <div className="absolute inset-0 bg-[#050505]">
         <AnimatePresence mode="wait">
@@ -39,11 +39,11 @@ export default function HeroBanner({ onPlayAll }: HeroBannerProps) {
             muted
             loop
             playsInline
-            className="w-full h-full object-contain opacity-40 md:opacity-60"
+            className="w-full h-full object-cover transition-opacity duration-1000"
           />
         </AnimatePresence>
         {/* Force a dark gradient even in light mode for the cinematic hero look */}
-        <div className="absolute inset-0 bg-linear-to-r from-[#050505] via-[#050505]/40 to-transparent opacity-100" />
+        <div className="absolute inset-0 bg-linear-to-t from-[#050505] via-[#050505]/40 to-[#050505]/20 opacity-100" />
       </div>
 
       <motion.div 
