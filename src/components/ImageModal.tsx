@@ -55,18 +55,18 @@ export default function ImageModal({ item, onClose, onNext, onPrev, isPaused, on
 
             <button 
               onClick={onClose}
-              className="absolute top-6 right-6 z-50 bg-black/20 text-white p-2 rounded-full hover:bg-white/10 backdrop-blur-md border border-white/10 transition-colors"
+              className="absolute top-4 md:top-6 right-4 md:right-6 z-50 bg-black/40 md:bg-black/20 text-white p-2 rounded-full hover:bg-white/10 backdrop-blur-md border border-white/10 transition-colors"
               title="Close"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5 md:w-6 md:h-6" />
             </button>
 
             <button 
               onClick={(e) => { e.stopPropagation(); onTogglePause?.(); }}
-              className="absolute top-6 right-20 z-50 bg-black/20 text-white p-2 rounded-full hover:bg-white/10 backdrop-blur-md border border-white/10 transition-colors"
+              className="absolute top-4 md:top-6 right-16 md:right-20 z-50 bg-black/40 md:bg-black/20 text-white p-2 rounded-full hover:bg-white/10 backdrop-blur-md border border-white/10 transition-colors"
               title={isPaused ? "Resume Slideshow" : "Pause Slideshow"}
             >
-              {isPaused ? <Play className="w-6 h-6 fill-current" /> : <Pause className="w-6 h-6 fill-current" />}
+              {isPaused ? <Play className="w-5 h-5 md:w-6 md:h-6 fill-current" /> : <Pause className="w-5 h-5 md:w-6 md:h-6 fill-current" />}
             </button>
 
           <div className="flex-grow h-full flex items-center justify-center bg-black overflow-hidden group/img">

@@ -92,7 +92,7 @@ export default function Navbar({ theme, toggleTheme, mood, setMood }: NavbarProp
           <button 
             onMouseEnter={() => setShowBrowseMenu(true)}
             onClick={() => setShowBrowseMenu(!showBrowseMenu)}
-            className="hidden md:flex items-center gap-1 text-sm font-medium text-text-dim hover:text-text-main transition-colors"
+            className="flex items-center gap-1 text-sm font-medium text-text-dim hover:text-text-main transition-colors"
           >
             Browse <ChevronDown className={`w-4 h-4 transition-transform ${showBrowseMenu ? 'rotate-180' : ''}`} />
           </button>
@@ -104,7 +104,7 @@ export default function Navbar({ theme, toggleTheme, mood, setMood }: NavbarProp
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
                 onMouseLeave={() => setShowBrowseMenu(false)}
-                className={`absolute top-full left-0 mt-4 p-5 rounded-lg bg-bg-deep border border-border-subtle shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-w-[320px] w-max z-[110] grid grid-cols-1 gap-1`}
+                className={`absolute top-full left-0 mt-4 p-5 rounded-lg bg-bg-deep border border-border-subtle shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-w-[280px] w-max z-[110] grid grid-cols-1 gap-1`}
               >
                 <div className="absolute -top-2 left-4 w-4 h-4 bg-bg-deep border-t border-l border-border-subtle rotate-45" />
                 {CATEGORIES.map((cat) => (

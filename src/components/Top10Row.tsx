@@ -41,14 +41,14 @@ const Top10Row: React.FC<Top10RowProps> = ({ id, items, userStats, onLike, onSel
               className="flex-shrink-0 relative w-64 md:w-80 group cursor-pointer"
             >
               {/* Massive Number */}
-              <div className="absolute -left-8 md:-left-12 bottom-0 text-[120px] md:text-[200px] font-black leading-none text-bg-deep select-none outline-text transition-all group-hover:text-accent/20 z-0 drop-shadow-[0_0_20px_rgba(0,0,0,0.5)]">
+              <div className="absolute -left-6 md:-left-12 bottom-0 text-[80px] md:text-[200px] font-black leading-none text-bg-deep select-none outline-text transition-all group-hover:text-accent/20 z-0 drop-shadow-[0_0_20px_rgba(0,0,0,0.5)]">
                 {index + 1}
               </div>
               
               {/* Card Content */}
               <div 
                 onClick={() => onSelect(item, items)}
-                className="relative z-10 ml-8 md:ml-12 rounded-sm overflow-hidden shadow-2xl bg-card-bg aspect-video border border-border-subtle group-hover:border-accent/50 transition-all duration-500"
+                className="relative z-10 ml-6 md:ml-12 rounded-sm overflow-hidden shadow-2xl bg-card-bg aspect-video border border-border-subtle group-hover:border-accent/50 transition-all duration-500"
               >
                 <img
                   src={item.imageUrl}

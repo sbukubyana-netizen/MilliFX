@@ -64,23 +64,23 @@ export default function HeroBanner({ onPlayAll }: HeroBannerProps) {
           </p>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <motion.button 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={(e) => { e.stopPropagation(); onPlayAll(); }}
-            className="flex items-center gap-2 bg-white text-black px-6 py-2.5 rounded-sm font-bold text-sm md:text-base hover:bg-zinc-200 transition-colors shadow-2xl"
+            className="flex items-center gap-2 bg-white text-black px-4 md:px-6 py-2.5 rounded-sm font-bold text-sm md:text-base hover:bg-zinc-200 transition-colors shadow-2xl"
           >
-            <Play className="w-5 h-5 fill-current" />
+            <Play className="w-4 h-4 md:w-5 md:h-5 fill-current" />
             Play Memories
           </motion.button>
           <motion.button 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => alert("Millicent: A cinematic masterpiece. Ratings: 10/10. Genre: Romance/Adventure. Release Date: 18 January 2027.")}
-            className="flex items-center gap-2 bg-zinc-600/70 text-white px-6 py-2.5 rounded-sm font-bold text-sm md:text-base hover:bg-zinc-700 transition-colors backdrop-blur-md"
+            className="flex items-center gap-2 bg-zinc-600/70 text-white px-4 md:px-6 py-2.5 rounded-sm font-bold text-sm md:text-base hover:bg-zinc-700 transition-colors backdrop-blur-md"
           >
-            <Info className="w-5 h-5" />
+            <Info className="w-4 h-4 md:w-5 md:h-5" />
             More Info
           </motion.button>
         </div>
