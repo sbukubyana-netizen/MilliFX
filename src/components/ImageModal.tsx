@@ -14,6 +14,8 @@ interface ImageModalProps {
 }
 
 export default function ImageModal({ item, onClose, onNext, onPrev, isPaused, onTogglePause, hasNext, hasPrev }: ImageModalProps) {
+  const [videoDuration, setVideoDuration] = useState(0);
+
   if (!item) return null;
 
   return (
@@ -73,6 +75,8 @@ export default function ImageModal({ item, onClose, onNext, onPrev, isPaused, on
             <AnimatePresence mode="wait">
               {item.videoUrl ? (
                 <motion.video
+                  onLoadedMetadata={(e) => setVideoDuration(e.currentTarget.duration)}
+                  onEnded={onNext}
                   key={item.videoUrl}
                   initial={{ opacity: 0, scale: 1.1 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -81,7 +85,6 @@ export default function ImageModal({ item, onClose, onNext, onPrev, isPaused, on
                   src={item.videoUrl}
                   autoPlay
                   muted
-                  loop
                   playsInline
                   className="w-full h-full object-contain"
                 />
@@ -105,10 +108,10 @@ export default function ImageModal({ item, onClose, onNext, onPrev, isPaused, on
               {/* Autoplay Progress Bar */}
               <div className="absolute top-0 left-0 w-full h-1 bg-white/10">
                 <motion.div 
-                  key={`${item.id}-${isPaused}`}
+                  key={`${item.id}-${isPaused}-${videoDuration}`}
                   initial={{ width: isPaused ? '0%' : '0%' }}
                   animate={{ width: isPaused ? '0%' : '100%' }}
-                  transition={{ duration: isPaused ? 0 : 5, ease: "linear" }}
+                  transition={{ duration: isPaused ? 0 : (item.videoUrl ? videoDuration : 5), ease: "linear" }}
                   className="h-full bg-accent shadow-[0_0_10px_var(--color-accent)]"
                 />
               </div>

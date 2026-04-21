@@ -177,19 +177,20 @@ export default function App() {
 
   // Autoplay Effect
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (selectedMemoryIndex !== null && !isSlideshowPaused) {
-      interval = setInterval(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    // Only auto-advance if not paused and current item is NOT a video
+    // Videos will trigger onNext via their own onEnded event in ImageModal
+    if (selectedMemoryIndex !== null && !isSlideshowPaused && !selectedMemory?.videoUrl) {
+      timer = setTimeout(() => {
         if (selectedMemoryIndex < currentCollection.length - 1) {
           handleNextMemory();
         } else {
-          // Loop back to start or stay? Usually loop for autoplay
           setSelectedMemoryIndex(0);
         }
-      }, 5000); // 5 seconds per slide
+      }, 5000); // 5 seconds for images
     }
-    return () => clearInterval(interval);
-  }, [selectedMemoryIndex, currentCollection.length, handleNextMemory, isSlideshowPaused]);
+    return () => clearTimeout(timer);
+  }, [selectedMemoryIndex, currentCollection.length, handleNextMemory, isSlideshowPaused, selectedMemory?.videoUrl]);
 
   // Scroll Lock Effect
   useEffect(() => {
