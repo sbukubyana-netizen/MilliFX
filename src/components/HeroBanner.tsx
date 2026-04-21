@@ -1,0 +1,85 @@
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Play, Info } from 'lucide-react';
+
+const HERO_VIDEOS = ['videos/6.mp4', 'videos/7.mp4'];
+
+export default function HeroBanner() {
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentVideoIndex((prev) => (prev + 1) % HERO_VIDEOS.length);
+    }, 10000); // Switch every 10 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  const scrollToContent = () => {
+    const content = document.querySelector('main > div');
+    if (content) content.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  return (
+    <div className="relative h-[400px] mx-6 md:mx-12 mt-24 rounded-lg overflow-hidden z-10">
+      {/* Cinematic Background Video Slideshow */}
+      <div className="absolute inset-0 bg-black">
+        <AnimatePresence mode="wait">
+          <motion.video
+            key={HERO_VIDEOS[currentVideoIndex]}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.5 }}
+            src={HERO_VIDEOS[currentVideoIndex]}
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="w-full h-full object-cover opacity-60"
+          />
+        </AnimatePresence>
+        <div className="absolute inset-0 bg-linear-to-r from-bg-deep via-bg-deep/20 to-transparent opacity-90" />
+      </div>
+
+      <motion.div 
+        initial={{ opacity: 0, x: -50 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.8, delay: 0.5 }}
+        className="relative z-10 h-full flex flex-col justify-center max-w-2xl px-8 md:px-12 space-y-4"
+      >
+        <div className="space-y-2">
+          <h2 className="text-accent font-bold tracking-[0.2em] uppercase text-xs md:text-sm">
+            Starring: Millicent
+          </h2>
+          <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-none transition-colors text-text-main">
+            The Story of Us
+          </h1>
+          <p className="text-base md:text-lg text-text-dim font-medium leading-relaxed max-w-lg mb-6">
+            A cinematic collection of memories, smiles, and the small moments that mean everything.
+          </p>
+        </div>
+
+        <div className="flex gap-3">
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={scrollToContent}
+            className="flex items-center gap-2 bg-white text-black px-6 py-2.5 rounded-sm font-bold text-sm md:text-base hover:bg-zinc-200 transition-colors shadow-2xl"
+          >
+            <Play className="w-5 h-5 fill-current" />
+            Play Memories
+          </motion.button>
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => alert("Millicent: A cinematic masterpiece. Ratings: 10/10. Genre: Romance/Adventure. Release Date: 18 January 2027.")}
+            className="flex items-center gap-2 bg-zinc-600/70 text-white px-6 py-2.5 rounded-sm font-bold text-sm md:text-base hover:bg-zinc-700 transition-colors backdrop-blur-md"
+          >
+            <Info className="w-5 h-5" />
+            More Info
+          </motion.button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
