@@ -21,6 +21,16 @@ const QUESTIONS = [
     question: "How many days are left until our next big anniversary?",
     options: ["Check the timer!", "More than 200", "Exactly 100", "Not enough"],
     correct: 0
+  },
+  {
+    question: "What is our absolute go-to routine or vibe for a perfect cozy evening?",
+    options: ["Warm Movie & Pizza Night", "Sunset Walk & Coffee", "Exploring New Places", "Listening to Sweet R&B Tracks"],
+    correct: 0
+  },
+  {
+    question: "Which of these titles best describes 'The Story of Us' so far?",
+    options: ["An Action-Packed Adventure", "A Sweet Indie Rom-Com", "A Pure Magical Masterpiece", "All of the above, forever & ever! 🤍"],
+    correct: 3
   }
 ];
 

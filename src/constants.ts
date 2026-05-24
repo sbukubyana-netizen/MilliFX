@@ -39,7 +39,7 @@ export const RAW_MEMORIES: Memory[] = Array.from({ length: 110 }, (_, i) => ({
 }));
 
 export const EPISODES: Episode[] = [
-  // My Favorite Moments (2 Episodes)
+  // My Favorite Moments (5 Episodes)
   {
     id: 'ep-fight',
     title: 'The Big Fight',
@@ -64,6 +64,42 @@ export const EPISODES: Episode[] = [
       { id: 'love-vid-7', title: 'Chapter 2', imageUrl: 'images/101.jpg', videoUrl: 'videos/7.mp4', description: 'The Journey Continues' },
       { id: 'love-img-102', title: 'Happily Ever After', imageUrl: 'images/102.jpg', description: 'The Resolution' }
     ]
+  },
+  {
+    id: 'ep-dinners',
+    title: 'Cozy Dinners',
+    description: 'Moments • Episode 3',
+    category: 'My Favorite Moments',
+    previewImageUrl: 'images/32.jpg',
+    images: RAW_MEMORIES.slice(29, 34).map((item, idx) => ({
+      ...item,
+      title: `Candlelight Ch. ${idx + 1}`,
+      description: 'A beautiful moment shared over great food'
+    }))
+  },
+  {
+    id: 'ep-sunsets',
+    title: 'Sunset Adventures',
+    description: 'Moments • Episode 4',
+    category: 'My Favorite Moments',
+    previewImageUrl: 'images/65.jpg',
+    images: RAW_MEMORIES.slice(62, 67).map((item, idx) => ({
+      ...item,
+      title: `Golden Hour Part ${idx + 1}`,
+      description: 'Chasing sunsets and beautiful horizons'
+    }))
+  },
+  {
+    id: 'ep-stars',
+    title: 'Under the Stars',
+    description: 'Moments • Episode 5',
+    category: 'My Favorite Moments',
+    previewImageUrl: 'images/84.jpg',
+    images: RAW_MEMORIES.slice(81, 86).map((item, idx) => ({
+      ...item,
+      title: `Midnight Talk ${idx + 1}`,
+      description: 'Whispering under the quiet starry night'
+    }))
   },
 
   // Her Smile Collection 😍 (5 Episodes)
@@ -174,7 +210,7 @@ export const EPISODES: Episode[] = [
     ]
   },
 
-  // Future Watchlist (2 Episodes)
+  // Future Watchlist (5 Episodes)
   {
     id: 'fut-1',
     title: 'Soweto Derby',
@@ -190,6 +226,30 @@ export const EPISODES: Episode[] = [
     category: 'Future Watchlist',
     previewImageUrl: 'images/cover.png',
     images: [] // User mentioned 104.png to 107.png as covers of episodes, but "no memories created yet"
+  },
+  {
+    id: 'fut-3',
+    title: 'Parisian Escape',
+    description: 'Coming Soon • TBA',
+    category: 'Future Watchlist',
+    previewImageUrl: 'images/104.png',
+    images: []
+  },
+  {
+    id: 'fut-4',
+    title: 'African Safari',
+    description: 'Coming Soon • TBA',
+    category: 'Future Watchlist',
+    previewImageUrl: 'images/105.png',
+    images: []
+  },
+  {
+    id: 'fut-5',
+    title: 'Cozy Beachside Sunset',
+    description: 'Coming Soon • TBA',
+    category: 'Future Watchlist',
+    previewImageUrl: 'images/106.png',
+    images: []
   },
 ];
 

@@ -75,16 +75,16 @@ export default function Navbar({ theme, toggleTheme, mood, setMood }: NavbarProp
 
   return (
     <nav 
-      className={`fixed top-0 w-full z-100 transition-all duration-500 flex items-center justify-between px-6 md:px-12 py-5 ${
+      className={`fixed top-0 w-full z-100 transition-all duration-500 flex items-center justify-between px-4 md:px-12 py-3.5 md:py-5 ${
         isScrolled 
           ? 'bg-bg-deep/95 shadow-2xl border-b border-border-subtle' 
           : 'bg-linear-to-b from-bg-deep/20 to-transparent'
       }`}
     >
-      <div className="flex items-center gap-4 md:gap-10">
+      <div className="flex items-center gap-3 md:gap-10">
         <h1 
           onClick={scrollToTop}
-          className="text-accent text-2xl md:text-3xl font-bold tracking-tighter cursor-pointer flex items-center gap-1 select-none"
+          className="text-accent text-xl md:text-3xl font-bold tracking-tighter cursor-pointer flex items-center gap-1 select-none"
         >
           Milli<span className="text-text-main transition-colors">Fix 🤍</span>
         </h1>
@@ -92,7 +92,7 @@ export default function Navbar({ theme, toggleTheme, mood, setMood }: NavbarProp
           <button 
             onMouseEnter={() => setShowBrowseMenu(true)}
             onClick={() => setShowBrowseMenu(!showBrowseMenu)}
-            className="flex items-center gap-1 text-sm font-medium text-text-dim hover:text-text-main transition-colors"
+            className="flex items-center gap-1 text-xs md:text-sm font-medium text-text-dim hover:text-text-main transition-colors"
           >
             Browse <ChevronDown className={`w-4 h-4 transition-transform ${showBrowseMenu ? 'rotate-180' : ''}`} />
           </button>
@@ -146,19 +146,19 @@ export default function Navbar({ theme, toggleTheme, mood, setMood }: NavbarProp
         </ul>
       </div>
 
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-3 md:gap-6">
         {/* Mood Selector */}
         <div className="relative">
           <button 
             onClick={() => setShowMoodMenu(!showMoodMenu)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all border ${
+            className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all border ${
               theme === 'dark' 
                 ? 'bg-white/5 border-white/10 text-white hover:bg-white/10' 
                 : 'bg-black/5 border-black/10 text-black hover:bg-black/10'
             }`}
           >
             <div className={`w-2 h-2 rounded-full bg-accent pr-0`} />
-            <span>{mood}</span>
+            <span className="hidden sm:inline">{mood}</span>
           </button>
           
           <AnimatePresence>
@@ -197,7 +197,7 @@ export default function Navbar({ theme, toggleTheme, mood, setMood }: NavbarProp
             theme === 'dark' ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-black/5 text-black hover:bg-black/10'
           }`}
         >
-          {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          {theme === 'dark' ? <Sun className="w-4 h-4 md:w-5 md:h-5" /> : <Moon className="w-4 h-4 md:w-5 md:h-5" />}
         </div>
 
         {/* Search */}
@@ -206,10 +206,10 @@ export default function Navbar({ theme, toggleTheme, mood, setMood }: NavbarProp
             {isSearchOpen && (
               <motion.input
                 initial={{ width: 0, opacity: 0 }}
-                animate={{ width: 200, opacity: 1 }}
+                animate={{ width: window.innerWidth < 640 ? 90 : 180, opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
-                placeholder="Search memories..."
-                className={`bg-card-bg border border-border-subtle rounded px-3 py-1 text-xs focus:outline-none focus:border-accent text-text-main transition-all ${
+                placeholder="Search..."
+                className={`bg-card-bg border border-border-subtle rounded px-2 py-1 text-[11px] focus:outline-none focus:border-accent text-text-main transition-all ${
                   theme === 'dark' ? 'bg-white/5' : 'bg-black/5'
                 }`}
                 autoFocus
@@ -219,7 +219,7 @@ export default function Navbar({ theme, toggleTheme, mood, setMood }: NavbarProp
           </AnimatePresence>
           <Search 
             onClick={() => setIsSearchOpen(!isSearchOpen)}
-            className={`w-5 h-5 cursor-pointer ml-2 ${theme === 'dark' ? 'text-text-dim hover:text-white' : 'text-zinc-600 hover:text-black'}`} 
+            className={`w-4 h-4 md:w-5 md:h-5 cursor-pointer ml-1.5 ${theme === 'dark' ? 'text-text-dim hover:text-white' : 'text-zinc-600 hover:text-black'}`} 
           />
         </div>
 
@@ -227,9 +227,9 @@ export default function Navbar({ theme, toggleTheme, mood, setMood }: NavbarProp
         <div className="relative">
           <Bell 
             onClick={() => setShowNotifications(!showNotifications)}
-            className={`w-5 h-5 cursor-pointer ${theme === 'dark' ? 'text-text-dim hover:text-white' : 'text-zinc-600 hover:text-black'}`} 
+            className={`w-4 h-4 md:w-5 md:h-5 cursor-pointer ${theme === 'dark' ? 'text-text-dim hover:text-white' : 'text-zinc-600 hover:text-black'}`} 
           />
-          <div className="absolute -top-1 -right-1 w-2 h-2 bg-accent rounded-full border border-bg-deep shadow-[0_0_5px_var(--color-accent)]" />
+          <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-accent rounded-full border border-bg-deep shadow-[0_0_5px_var(--color-accent)]" />
           
           <AnimatePresence>
             {showNotifications && (

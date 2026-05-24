@@ -19,6 +19,9 @@ import CountdownPage from './components/CountdownPage';
 import BackgroundMusic from './components/BackgroundMusic';
 import Notification from './components/Notification';
 import CountdownBox from './components/CountdownBox';
+import LoveLetter from './components/LoveLetter';
+import LoveNotesBoard from './components/LoveNotesBoard';
+import SoundtrackVinylPlayer from './components/SoundtrackVinylPlayer';
 import { PlayCircle } from 'lucide-react';
 
 export default function App() {
@@ -335,6 +338,10 @@ export default function App() {
                 )}
               </div>
 
+              <LoveNotesBoard />
+
+              <SoundtrackVinylPlayer />
+
               <CreditsSection />
 
               <footer className="py-20 text-center space-y-6 border-t border-border-subtle bg-card-bg/20 transition-colors">
@@ -429,6 +436,7 @@ export default function App() {
             <BackgroundMusic isVisible={stage === 'home'} isPaused={isMusicPaused || isQuizOpen} mood={mood} />
             <Notification />
             <CountdownBox />
+            <LoveLetter isVisible={stage === 'home'} />
           </motion.div>
         )}
 
