@@ -22,6 +22,9 @@ import CountdownBox from './components/CountdownBox';
 import LoveLetter from './components/LoveLetter';
 import LoveNotesBoard from './components/LoveNotesBoard';
 import SoundtrackVinylPlayer from './components/SoundtrackVinylPlayer';
+import AdminMediaSettings from './components/AdminMediaSettings';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from './firebase';
 import { PlayCircle } from 'lucide-react';
 
 export default function App() {
@@ -36,6 +39,12 @@ export default function App() {
   const [isSlideshowPaused, setIsSlideshowPaused] = useState(false);
   const [showTbaEpisode, setShowTbaEpisode] = useState<Episode | null>(null);
 
+  // Synchronized Dynamic Settings states
+  const [customEpisodes, setCustomEpisodes] = useState<Episode[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [adminSuccessMessage, setAdminSuccessMessage] = useState<string | null>(null);
+
   // View & Like Tracking State
   const [userStats, setUserStats] = useState<{ [key: string]: { views: number, likes: number } }>(() => {
     const saved = localStorage.getItem('millifix_stats');
@@ -46,6 +55,62 @@ export default function App() {
     const saved = localStorage.getItem('millifix_continue');
     return saved ? JSON.parse(saved) : [];
   });
+
+  // Subscribe to real-time custom episodes in Firestore
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'custom_episodes'), (snapshot) => {
+      const list: Episode[] = [];
+      snapshot.forEach((doc) => {
+        list.push({ id: doc.id, ...doc.data() } as Episode);
+      });
+      setCustomEpisodes(list);
+    }, (error) => {
+      console.error('Error fetching custom episodes:', error);
+    });
+    return () => unsub();
+  }, []);
+
+  const allEpisodes = useMemo(() => {
+    const merged = [...EPISODES];
+    customEpisodes.forEach(customEp => {
+      const idx = merged.findIndex(e => e.id === customEp.id);
+      if (idx !== -1) {
+        merged[idx] = customEp;
+      } else {
+        merged.push(customEp);
+      }
+    });
+    return merged;
+  }, [customEpisodes]);
+
+  const combinedCategories = useMemo(() => {
+    const customCats: string[] = customEpisodes.map(ep => ep.category);
+    const uniqueCustomCats: string[] = Array.from(new Set<string>(customCats.filter(c => !(CATEGORIES as string[]).includes(c))));
+    
+    const result: string[] = [...CATEGORIES];
+    const futureIndex = result.indexOf('Future Watchlist');
+    if (futureIndex !== -1) {
+      result.splice(futureIndex, 0, ...uniqueCustomCats);
+    } else {
+      result.push(...uniqueCustomCats);
+    }
+    return result;
+  }, [customEpisodes]);
+
+  // Dynamic Search Filtering
+  const filteredEpisodes = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const query = searchQuery.toLowerCase();
+    return allEpisodes.filter(ep => 
+      ep.title.toLowerCase().includes(query) ||
+      ep.description.toLowerCase().includes(query) ||
+      ep.category.toLowerCase().includes(query) ||
+      ep.images.some(img => 
+        img.title.toLowerCase().includes(query) ||
+        (img.description && img.description.toLowerCase().includes(query))
+      )
+    );
+  }, [searchQuery, allEpisodes]);
 
   useEffect(() => {
     localStorage.setItem('millifix_stats', JSON.stringify(userStats));
@@ -59,13 +124,13 @@ export default function App() {
     setContinueWatching(prev => {
       const filtered = prev.filter(item => item.episodeId !== episodeId);
       // Only add if not at the end of the collection
-      const episode = EPISODES.find(e => e.id === episodeId);
+      const episode = allEpisodes.find(e => e.id === episodeId);
       if (episode && index < episode.images.length - 1) {
         return [{ episodeId, index, timestamp: Date.now() }, ...filtered].slice(0, 10);
       }
       return filtered;
     });
-  }, []);
+  }, [allEpisodes]);
 
   const clearContinueWatching = useCallback((episodeId: string) => {
     setContinueWatching(prev => prev.filter(item => item.episodeId !== episodeId));
@@ -92,14 +157,14 @@ export default function App() {
   }, []);
 
   const handlePlayAll = useCallback(() => {
-    const allMemories = EPISODES.reduce((acc, ep) => [...acc, ...ep.images], [] as Memory[]);
+    const allMemories = allEpisodes.reduce((acc, ep) => [...acc, ...ep.images], [] as Memory[]);
     if (allMemories.length > 0) {
       setCurrentCollection(allMemories);
       setSelectedMemoryIndex(0);
       setIsSlideshowPaused(false);
       handleView(allMemories[0].id);
     }
-  }, [handleView]);
+  }, [allEpisodes, handleView]);
 
   const selectedMemory = selectedMemoryIndex !== null ? currentCollection[selectedMemoryIndex] : null;
 
@@ -260,13 +325,25 @@ export default function App() {
             animate={{ opacity: 1 }}
             className="relative"
           >
-            <Navbar theme={theme} toggleTheme={toggleTheme} mood={mood} setMood={setMood} />
+            <Navbar theme={theme} toggleTheme={toggleTheme} mood={mood} setMood={setMood} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onOpenAdmin={() => setIsAdminOpen(true)} />
             
             <main>
               <HeroBanner onPlayAll={handlePlayAll} />
               
               <div className="relative -mt-32 md:-mt-48 z-20 pb-20">
-                {CATEGORIES.map((category) => {
+                {/* Dynamic Search Results Section */}
+                {searchQuery.trim() !== '' && (
+                  <div className="border border-accent/20 bg-accent/5 backdrop-blur-md rounded-lg mx-6 md:mx-12 p-2 mb-8 animate-fadeIn">
+                    <ContentRow 
+                      id="search-results-row"
+                      title={`Search Results for "${searchQuery}"`}
+                      episodes={filteredEpisodes}
+                      onSelectEpisode={handleSelectEpisode} 
+                    />
+                  </div>
+                )}
+
+                {combinedCategories.map((category) => {
                   const categoryId = category.toLowerCase().replace(/[^a-z0-9]/g, '-');
                   if (category === 'Global Top 10 in MilliFix') {
                     return (
@@ -281,7 +358,7 @@ export default function App() {
                     );
                   }
                   
-                  const episodes = EPISODES.filter(ep => ep.category === category);
+                  const episodes = allEpisodes.filter(ep => ep.category === category);
                   if (episodes.length === 0) return null;
                   return (
                     <ContentRow 
@@ -302,7 +379,7 @@ export default function App() {
                     </h3>
                     <div className="px-6 md:px-12 flex gap-4 overflow-x-auto no-scrollbar pb-4">
                       {continueWatching.map((item) => {
-                        const episode = EPISODES.find(e => e.id === item.episodeId);
+                        const episode = allEpisodes.find(e => e.id === item.episodeId);
                         if (!episode) return null;
                         const progressPercent = Math.round(((item.index + 1) / episode.images.length) * 100);
                         
@@ -437,6 +514,41 @@ export default function App() {
             <Notification />
             <CountdownBox />
             <LoveLetter isVisible={stage === 'home'} />
+
+            {/* Admin Media Dashboard Settings Overlay */}
+            <AnimatePresence>
+              {isAdminOpen && (
+                <AdminMediaSettings 
+                  isOpen={isAdminOpen} 
+                  onClose={() => setIsAdminOpen(false)} 
+                  allEpisodes={allEpisodes}
+                  onSuccess={(msg) => {
+                    setAdminSuccessMessage(msg);
+                    setTimeout(() => setAdminSuccessMessage(null), 5000);
+                  }}
+                />
+              )}
+            </AnimatePresence>
+
+            {/* Dashboard Operation Toast */}
+            <AnimatePresence>
+              {adminSuccessMessage && (
+                <motion.div
+                  initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 50, scale: 0.9 }}
+                  className="fixed bottom-6 right-6 z-[500] bg-zinc-950 border border-emerald-500/30 text-white p-4 rounded-lg shadow-2xl flex items-center gap-3"
+                >
+                  <div className="w-7 h-7 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xs font-bold">
+                    ✓
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Database Sync Active</p>
+                    <p className="text-[11px] text-zinc-300 font-bold mt-0.5">{adminSuccessMessage}</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
 

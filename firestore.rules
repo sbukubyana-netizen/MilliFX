@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Catch-all default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions for common validations
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation for Love Note sticky notes
+    function isValidLoveNote(data) {
+      return data.keys().hasAll(['id', 'text', 'sender', 'color', 'createdAt', 'tilt'])
+        && data.keys().size() == 6
+        && data.id is string && data.id.size() <= 100
+        && data.text is string && data.text.size() <= 500
+        && data.sender is string && (data.sender == 'Milli 🤍' || data.sender == 'Fix 🤍' || data.sender == 'Us 🤍')
+        && data.color is string && data.color.size() <= 200
+        && data.createdAt is string && data.createdAt.size() <= 50
+        && (data.tilt is int || data.tilt is float);
+    }
+
+    // Validation for Song Dedications
+    function isValidSongDedication(data) {
+      return data.keys().hasAll(['id', 'songTitle', 'from', 'to', 'message', 'timestamp', 'sticker'])
+        && data.keys().size() == 7
+        && data.id is string && data.id.size() <= 100
+        && data.songTitle is string && data.songTitle.size() <= 200
+        && data.from is string && data.from.size() <= 100
+        && data.to is string && data.to.size() <= 100
+        && data.message is string && data.message.size() <= 1000
+        && data.timestamp is string && data.timestamp.size() <= 50
+        && data.sticker is string && (data.sticker == 'heart' || data.sticker == 'star' || data.sticker == 'rose' || data.sticker == 'fire');
+    }
+
+    // Validation for Custom Episodes
+    function isValidCustomEpisode(data) {
+      return data.keys().hasAll(['id', 'title', 'description', 'category', 'previewImageUrl', 'images'])
+        && data.id is string && data.id.size() <= 100
+        && data.title is string && data.title.size() <= 200
+        && data.description is string && data.description.size() <= 500
+        && data.category is string && data.category.size() <= 200
+        && data.previewImageUrl is string && data.previewImageUrl.size() <= 2000
+        && data.images is list;
+    }
+
+    // Rules for love_notes collection
+    match /love_notes/{noteId} {
+      allow read: if true;
+      allow create: if isValidId(noteId) && isValidLoveNote(incoming()) && incoming().id == noteId;
+      allow update: if isValidId(noteId) && isValidLoveNote(incoming()) && incoming().id == noteId;
+      allow delete: if isValidId(noteId);
+    }
+
+    // Rules for song_dedications collection
+    match /song_dedications/{dedicationId} {
+      allow read: if true;
+      allow create: if isValidId(dedicationId) && isValidSongDedication(incoming()) && incoming().id == dedicationId;
+      allow update: if isValidId(dedicationId) && isValidSongDedication(incoming()) && incoming().id == dedicationId;
+      allow delete: if isValidId(dedicationId);
+    }
+
+    // Rules for custom_episodes collection
+    match /custom_episodes/{episodeId} {
+      allow read: if true;
+      allow create: if isValidId(episodeId) && isValidCustomEpisode(incoming()) && incoming().id == episodeId;
+      allow update: if isValidId(episodeId) && isValidCustomEpisode(incoming()) && incoming().id == episodeId;
+      allow delete: if isValidId(episodeId);
+    }
+  }
+}

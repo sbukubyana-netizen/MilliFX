@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Play, Pause, SkipBack, SkipForward, Music, Disc, Sparkles, Heart, Plus, Trash2, Send } from 'lucide-react';
+import { collection, onSnapshot, setDoc, deleteDoc, doc } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 
 interface SoundtrackTrack {
   id: number;
@@ -81,29 +83,14 @@ interface SongDedication {
 
 export default function SoundtrackVinylPlayer() {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playlist, setPlaylist] = useState<SoundtrackTrack[]>(() => [...VINYL_PLAYLIST]);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.5);
   
   // Dedications storage
-  const [dedications, setDedications] = useState<SongDedication[]>(() => {
-    const saved = localStorage.getItem('millifix_song_dedications');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { return []; }
-    }
-    return [
-      {
-        id: 'ded-1',
-        songTitle: 'Our Theme 🤍',
-        from: 'Fix 🤍',
-        to: 'Milli 🤍',
-        message: 'This always reminds me of the first time our eyes synced. Play it on repeat! 🥰',
-        timestamp: '24 May 2026',
-        sticker: 'heart'
-      }
-    ];
-  });
+  const [dedications, setDedications] = useState<SongDedication[]>([]);
 
   // Dedication form state
   const [dedFormSong, setDedFormSong] = useState(VINYL_PLAYLIST[0].title);
@@ -114,17 +101,133 @@ export default function SoundtrackVinylPlayer() {
   const [showDedCreator, setShowDedCreator] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const currentTrack = VINYL_PLAYLIST[currentTrackIndex];
+  const currentTrack = playlist[currentTrackIndex] || playlist[0] || VINYL_PLAYLIST[0];
 
+  // Firestore Real-time Sync for Dedications
   useEffect(() => {
-    localStorage.setItem('millifix_song_dedications', JSON.stringify(dedications));
-  }, [dedications]);
+    const unsub = onSnapshot(collection(db, 'song_dedications'), (snapshot) => {
+      const fetchedDeds: SongDedication[] = [];
+      snapshot.forEach((doc) => {
+        fetchedDeds.push(doc.data() as SongDedication);
+      });
+
+      // Sort dedications so newer ones are on top
+      fetchedDeds.sort((a, b) => {
+        const idA = Number(a.id.replace('ded-', '')) || 0;
+        const idB = Number(b.id.replace('ded-', '')) || 0;
+        return idB - idA;
+      });
+
+      setDedications(fetchedDeds);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'song_dedications');
+    });
+
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = volume;
     }
   }, [volume]);
+
+  // Broadcast current vinyl playback state to the floating control panel
+  useEffect(() => {
+    const detail = {
+      isPlaying,
+      currentTrackIndex,
+      currentTrackTitle: playlist[currentTrackIndex]?.title || '',
+      playlist,
+      volume
+    };
+    window.dispatchEvent(new CustomEvent('millifix-audio-state', { detail }));
+  }, [isPlaying, currentTrackIndex, playlist, volume]);
+
+  // Listen to remote controls sent by the floating control panel
+  useEffect(() => {
+    const handleRemoteControl = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const { action, value } = customEvent.detail || {};
+      
+      switch (action) {
+        case 'toggle':
+          togglePlay();
+          break;
+        case 'next':
+          handleNext();
+          break;
+        case 'prev':
+          handlePrev();
+          break;
+        case 'volume':
+          if (typeof value === 'number') {
+            setVolume(value);
+          }
+          break;
+        case 'request-state':
+          // Immediately broadcast state to target the requesting listener
+          window.dispatchEvent(new CustomEvent('millifix-audio-state', {
+            detail: {
+              isPlaying,
+              currentTrackIndex,
+              currentTrackTitle: playlist[currentTrackIndex]?.title || '',
+              playlist,
+              volume
+            }
+          }));
+          break;
+      }
+    };
+    
+    window.addEventListener('millifix-audio-control', handleRemoteControl);
+    return () => {
+      window.removeEventListener('millifix-audio-control', handleRemoteControl);
+    };
+  }, [isPlaying, currentTrackIndex, playlist, volume]);
+
+  // Handle local music uploads
+  const handleLocalAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newTracks: SoundtrackTrack[] = [];
+
+    // Aesthetic cover colors for uploaded tracks
+    const gradients = [
+      "from-blue-600 via-indigo-700 to-indigo-900",
+      "from-teal-600 via-cyan-700 to-blue-900",
+      "from-purple-600 via-fuchsia-700 to-rose-900",
+      "from-amber-500 via-orange-600 to-red-800"
+    ];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fileUrl = URL.createObjectURL(file);
+
+      const colorIdx = (playlist.length + i) % gradients.length;
+      const coverColor = gradients[colorIdx];
+
+      newTracks.push({
+        id: Date.now() + i,
+        title: `${file.name.replace(/\.[^/.]+$/, "")} 🎵`,
+        url: fileUrl,
+        genre: `Local Audio Module`,
+        duration: "Local",
+        story: "Selected directly from your local device storage. Cozy romantic vibes spinning on demand! 🤍",
+        coverColor: coverColor
+      });
+    }
+
+    if (newTracks.length > 0) {
+      const oldLength = playlist.length;
+      setPlaylist(prev => [...prev, ...newTracks]);
+      // Update dedication song automatically to match new song just in case
+      setDedFormSong(newTracks[0].title);
+      // Auto-trigger load and play of first upload
+      handleTrackChange(oldLength, true);
+    }
+  };
 
   // Handle source changes
   const handleTrackChange = (index: number, autoPlay: boolean = false) => {
@@ -133,7 +236,7 @@ export default function SoundtrackVinylPlayer() {
     setIsPlaying(autoPlay);
     
     if (audioRef.current) {
-      audioRef.current.src = VINYL_PLAYLIST[index].url;
+      audioRef.current.src = playlist[index]?.url || VINYL_PLAYLIST[0].url;
       audioRef.current.load();
       if (autoPlay) {
         // Wait minor delay to prevent rapid play/pause interrupts
@@ -174,7 +277,7 @@ export default function SoundtrackVinylPlayer() {
   };
 
   const handleTrackEnded = () => {
-    const nextIndex = (currentTrackIndex + 1) % VINYL_PLAYLIST.length;
+    const nextIndex = (currentTrackIndex + 1) % playlist.length;
     handleTrackChange(nextIndex, true);
   };
 
@@ -187,21 +290,22 @@ export default function SoundtrackVinylPlayer() {
   };
 
   const handleNext = () => {
-    const nextIndex = (currentTrackIndex + 1) % VINYL_PLAYLIST.length;
+    const nextIndex = (currentTrackIndex + 1) % playlist.length;
     handleTrackChange(nextIndex, isPlaying);
   };
 
   const handlePrev = () => {
-    const prevIndex = (currentTrackIndex - 1 + VINYL_PLAYLIST.length) % VINYL_PLAYLIST.length;
+    const prevIndex = (currentTrackIndex - 1 + playlist.length) % playlist.length;
     handleTrackChange(prevIndex, isPlaying);
   };
 
   // Dedication posting
-  const handlePostDedication = () => {
+  const handlePostDedication = async () => {
     if (!dedFormMsg.trim()) return;
 
+    const newId = `ded-${Date.now()}`;
     const newDed: SongDedication = {
-      id: `ded-${Date.now()}`,
+      id: newId,
       songTitle: dedFormSong,
       from: dedFormFrom,
       to: dedFormTo,
@@ -210,13 +314,22 @@ export default function SoundtrackVinylPlayer() {
       sticker: dedSticker
     };
 
-    setDedications(prev => [newDed, ...prev]);
+    try {
+      await setDoc(doc(db, 'song_dedications', newId), newDed);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, `song_dedications/${newId}`);
+    }
+
     setDedFormMsg('');
     setShowDedCreator(false);
   };
 
-  const handleDeleteDedication = (id: string) => {
-    setDedications(prev => prev.filter(d => d.id !== id));
+  const handleDeleteDedication = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'song_dedications', id));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `song_dedications/${id}`);
+    }
   };
 
   // Helper formats
@@ -228,7 +341,7 @@ export default function SoundtrackVinylPlayer() {
   };
 
   return (
-    <div className="py-24 px-4 md:px-12 bg-bg-deep border-t border-border-subtle relative overflow-hidden" id="soundtrack-vinyl-player">
+    <div className="py-12 md:py-24 px-3 sm:px-6 md:px-12 bg-bg-deep border-t border-border-subtle relative overflow-hidden" id="soundtrack-vinyl-player">
       {/* Dynamic Background Glow representing the cover art */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-accent/5 rounded-full filter blur-[140px] pointer-events-none transition-colors duration-1000" />
       
@@ -244,21 +357,21 @@ export default function SoundtrackVinylPlayer() {
             The Soundtrack of Us
           </h2>
           <p className="text-text-dim text-xs md:text-sm">
-            Spin our private romantic vinyl! Choose your favorite melody, read the heartfelt memory logs, and drop sweet track dedications directly onto our dashboard memory wall 🤍
+            Spin our private romantic vinyl! Choose your favorite melody, upload custom songs, read heartfelt memories, and drop dedications directly onto our dashboard wall 🤍
           </p>
         </div>
 
         {/* Player Layout Split */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8 items-start">
           
-          {/* LEFT: 12-column span -> 5 for Vinyl, 4 for Track details, 3 for list */}
-          <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-12 gap-8 bg-black/40 border border-white/5 rounded-2xl p-6 md:p-8 backdrop-blur-xl">
+          {/* LEFT: Turntable visualizer & Controls */}
+          <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8 bg-black/40 border border-white/5 rounded-2xl p-4 sm:p-6 md:p-8 backdrop-blur-xl">
             
-            {/* MD-5: The Virtual Turntable Visualizer */}
-            <div className="md:col-span-6 flex flex-col items-center justify-center space-y-6">
+            {/* MD-6: The Virtual Turntable Visualizer */}
+            <div className="md:col-span-6 flex flex-col items-center justify-center space-y-4">
               
               {/* Turntable Base */}
-              <div className="relative aspect-square w-full max-w-[280px] bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl flex items-center justify-center overflow-hidden">
+              <div className="relative aspect-square w-full max-w-[240px] sm:max-w-[280px] bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 shadow-2xl flex items-center justify-center overflow-hidden">
                 {/* Turntable metal ring */}
                 <div className="absolute inset-4 rounded-full border border-zinc-700/50 bg-neutral-950/40" />
 
@@ -267,7 +380,7 @@ export default function SoundtrackVinylPlayer() {
                   <motion.div
                     animate={isPlaying ? { rotate: 360 } : {}}
                     transition={isPlaying ? { repeat: Infinity, duration: 4.5, ease: "linear" } : { duration: 0 }}
-                    className="w-[180px] h-[180px] md:w-[200px] md:h-[200px] rounded-full bg-stone-950 flex items-center justify-center shadow-2xl relative select-none"
+                    className="w-[140px] h-[140px] sm:w-[180px] sm:h-[180px] md:w-[200px] md:h-[200px] rounded-full bg-stone-950 flex items-center justify-center shadow-2xl relative select-none"
                     style={{
                       background: 'radial-gradient(circle, #333 2%, #111 6%, #1a1a1a 12%, #0a0a0a 13%, #1a1a1a 25%, #0d0d0d 26%, #1e1e1e 40%, #0d0d0d 41%, #222 65%, #050505 66%, #1c1c1c 85%, #000 100%)'
                     }}
@@ -280,10 +393,10 @@ export default function SoundtrackVinylPlayer() {
                     <div className="absolute inset-18 rounded-full border border-white/5 opacity-40 pointer-events-none" />
 
                     {/* Disc Center Label */}
-                    <div className={`w-16 h-16 md:w-18 md:h-18 rounded-full bg-gradient-to-tr ${currentTrack.coverColor} flex items-center justify-center relative p-1 shadow-inner border border-black/30`}>
+                    <div className={`w-12 h-12 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-full bg-gradient-to-tr ${currentTrack.coverColor} flex items-center justify-center relative p-1 shadow-inner border border-black/30`}>
                       {/* Album Center Spindle hole */}
-                      <div className="w-4 h-4 rounded-full bg-zinc-900 border border-zinc-800 z-10 flex items-center justify-center">
-                        <div className="w-1 h-1 rounded-full bg-zinc-500" />
+                      <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-zinc-900 border border-zinc-800 z-10 flex items-center justify-center">
+                        <div className="w-0.5 h-0.5 sm:w-1 sm:h-1 rounded-full bg-zinc-500" />
                       </div>
                       
                       {/* Interactive decorative sparkles of love */}
@@ -304,19 +417,19 @@ export default function SoundtrackVinylPlayer() {
                     <motion.div
                       animate={isPlaying ? { rotate: 22 } : { rotate: 0 }}
                       transition={{ type: 'spring', stiffness: 50, damping: 10 }}
-                      className="origin-[30px_10px] relative"
-                      style={{ left: '-30px', top: '5px' }}
+                      className="origin-[25px_8px] sm:origin-[30px_10px] relative"
+                      style={{ left: '-25px', top: '5px' }}
                     >
                       {/* Arm Base pivot */}
-                      <div className="w-[36px] h-[36px] rounded-full bg-zinc-800 border-2 border-zinc-700 shadow-lg flex items-center justify-center">
-                        <div className="w-3 h-3 rounded-full bg-zinc-600" />
+                      <div className="w-[28px] h-[28px] sm:w-[36px] sm:h-[36px] rounded-full bg-zinc-800 border-2 border-zinc-700 shadow-lg flex items-center justify-center">
+                        <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-zinc-600" />
                       </div>
                       {/* Curved metal tonearm */}
-                      <div className="w-2.5 h-20 bg-zinc-400 rounded-full absolute top-[14px] left-[14px] origin-top shadow-md"
+                      <div className="w-2 h-14 sm:w-2.5 sm:h-20 bg-zinc-400 rounded-full absolute top-[10px] left-[10px] sm:top-[14px] sm:left-[14px] origin-top shadow-md"
                            style={{ transform: 'rotate(-5deg) translate(-2px, -2px)' }}>
                         {/* Stylus cartridge piece at the tip */}
-                        <div className="w-4 h-6 bg-zinc-700 rounded absolute bottom-0 -left-1 flex flex-col items-center">
-                          <div className="w-1.5 h-2.5 bg-accent/60" /> {/* Stylus tracker highlight */}
+                        <div className="w-3.5 h-5 sm:w-4 sm:h-6 bg-zinc-700 rounded absolute bottom-0 -left-1 flex flex-col items-center">
+                          <div className="w-1.5 h-2 sm:w-1.5 sm:h-2.5 bg-accent/60" /> {/* Stylus tracker highlight */}
                         </div>
                       </div>
                     </motion.div>
@@ -353,21 +466,21 @@ export default function SoundtrackVinylPlayer() {
             </div>
 
             {/* MD-6: Audio Controls & Metadata details */}
-            <div className="md:col-span-6 flex flex-col justify-between space-y-6">
+            <div className="md:col-span-6 flex flex-col justify-between space-y-4">
               
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {/* Playing Metadata */}
                 <div>
                   <span className="text-accent text-[9px] font-black uppercase tracking-widest block">Now Playing Chapter</span>
-                  <h3 className="text-2xl font-extrabold text-white tracking-tight leading-tight mt-1">{currentTrack.title}</h3>
-                  <div className="flex items-center gap-2 mt-1 px-2.5 py-0.5 self-start bg-white/5 border border-white/10 rounded-full text-[9px] uppercase tracking-wider font-extrabold text-text-dim w-fit mt-2">
+                  <h3 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-tight mt-1">{currentTrack.title}</h3>
+                  <div className="flex items-center gap-2 px-2.5 py-0.5 bg-white/5 border border-white/10 rounded-full text-[9px] uppercase tracking-wider font-extrabold text-text-dim w-fit mt-2">
                     <span className="w-1 h-1 rounded-full bg-accent animate-ping" />
                     {currentTrack.genre}
                   </div>
                 </div>
 
                 {/* Track story description */}
-                <div className="bg-black/20 p-4 rounded-xl border border-white/5">
+                <div className="bg-black/20 p-3 sm:p-4 rounded-xl border border-white/5">
                   <p className="text-xs text-text-dim leading-relaxed font-medium italic">
                     "{currentTrack.story}"
                   </p>
@@ -399,7 +512,7 @@ export default function SoundtrackVinylPlayer() {
               </div>
 
               {/* Console player controls */}
-              <div className="flex items-center justify-between gap-4 pt-2">
+              <div className="flex items-center justify-between gap-2 pt-2">
                 
                 {/* Secondary: Skip Back */}
                 <button
@@ -415,16 +528,16 @@ export default function SoundtrackVinylPlayer() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={togglePlay}
-                  className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-[0_5px_15px_rgba(255,45,85,0.2)] cursor-pointer ${
+                  className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all shadow-[0_5px_15px_rgba(255,45,85,0.2)] cursor-pointer ${
                     isPlaying 
                       ? 'bg-zinc-800 border border-zinc-700 text-accent hover:border-accent' 
                       : 'bg-accent text-white hover:opacity-90 contrast-125'
                   }`}
                 >
                   {isPlaying ? (
-                    <Pause className="w-6 h-6 fill-current" />
+                    <Pause className="w-5 h-5 sm:w-6 sm:h-6 fill-current" />
                   ) : (
-                    <Play className="w-6 h-6 fill-current ml-1" />
+                    <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-current ml-1" />
                   )}
                 </motion.button>
 
@@ -451,43 +564,60 @@ export default function SoundtrackVinylPlayer() {
 
           </div>
 
-          {/* RIGHT: Quick Track List (4 spans) */}
-          <div className="lg:col-span-4 bg-black/40 border border-white/5 rounded-2xl p-6 flex flex-col justify-between space-y-6 h-full max-h-[480px]">
+          {/* RIGHT: Quick Track List & Custom Uploader (4 spans) */}
+          <div className="lg:col-span-4 bg-black/40 border border-white/5 rounded-2xl p-4 sm:p-5 flex flex-col justify-between space-y-4 h-full max-h-[520px] lg:max-h-[580px] overflow-hidden">
             
-            <div className="space-y-4 overflow-y-auto no-scrollbar pr-1 flex-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-widest text-text-dim">MilliFix Album Tracks</span>
-                <span className="text-[10px] font-black tracking-wider text-accent uppercase font-mono">{VINYL_PLAYLIST.length} Chapters</span>
+            <div className="space-y-3 overflow-y-auto no-scrollbar pr-1 flex-1">
+              <div className="flex items-center justify-between pb-1 border-b border-white/5 mb-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-text-dim">MilliFix Tracklist</span>
+                <span className="text-[10px] font-black tracking-wider text-accent uppercase font-mono">{playlist.length} Chapters</span>
+              </div>
+
+              {/* Interactive Local Audio File Selector */}
+              <div className="bg-white/[0.03] border border-white/10 rounded-xl p-3 text-center space-y-1.5 mb-2.5">
+                <p className="text-[10px] font-black text-text-main uppercase tracking-widest">🎵 Play Your Local Music</p>
+                <p className="text-[9px] text-text-dim leading-relaxed">Choose audio files from your phone or computer to spin them directly on our virtual turntable!</p>
+                <label className="inline-flex items-center justify-center gap-1.5 w-full py-2 bg-accent/20 hover:bg-accent/35 active:scale-98 border border-accent/40 rounded-full text-accent font-black text-[10px] uppercase cursor-pointer transition-all duration-300">
+                  <Plus className="w-3 h-3" />
+                  <span>Choose Music File</span>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    multiple
+                    onChange={handleLocalAudioUpload}
+                    className="hidden"
+                  />
+                </label>
               </div>
 
               {/* Fast Track list rows */}
-              <div className="space-y-2.5">
-                {VINYL_PLAYLIST.map((track, idx) => {
+              <div className="space-y-2">
+                {playlist.map((track, idx) => {
                   const isCurrent = idx === currentTrackIndex;
                   return (
                     <button
                       key={track.id}
                       onClick={() => handleTrackChange(idx, true)}
-                      className={`w-full flex items-center justify-between p-3 rounded-lg border text-left transition-all cursor-pointer ${
+                      className={`w-full flex items-center justify-between p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
                         isCurrent 
                           ? 'bg-accent/10 border-accent/40 text-white shadow-[0_0_15px_rgba(255,45,85,0.1)]' 
                           : 'bg-transparent border-white/5 hover:border-white/10 hover:bg-white/[0.02] text-text-dim hover:text-white'
                       }`}
                     >
-                      <div className="flex items-center gap-3 truncate">
+                      <div className="flex items-center gap-2.5 truncate">
                         <span className={`text-[10px] font-mono font-black ${isCurrent ? 'text-accent' : 'text-text-dim/50'}`}>
                           {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
                         </span>
                         
                         <div className="truncate">
                           <p className="text-xs font-bold truncate tracking-tight">{track.title}</p>
-                          <p className="text-[9px] opacity-70 mt-0.5 font-medium truncate uppercase tracking-widest">{track.genre}</p>
+                          <p className="text-[8px] opacity-70 mt-0.5 font-medium truncate uppercase tracking-widest">{track.genre}</p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 font-mono text-[10px] font-bold">
+                      <div className="flex items-center gap-2 font-mono text-[9px] font-bold shrink-0">
                         {isCurrent && isPlaying ? (
-                          <div className="flex gap-0.5 items-end h-2.5 shrink-0">
+                          <div className="flex gap-0.5 items-end h-2.5">
                             <motion.div animate={{ height: [2, 7, 2] }} transition={{ repeat: Infinity, duration: 0.5 }} className="w-0.5 bg-accent" />
                             <motion.div animate={{ height: [2, 9, 2] }} transition={{ repeat: Infinity, duration: 0.7 }} className="w-0.5 bg-accent" />
                             <motion.div animate={{ height: [2, 5, 2] }} transition={{ repeat: Infinity, duration: 0.6 }} className="w-0.5 bg-accent" />
@@ -503,8 +633,8 @@ export default function SoundtrackVinylPlayer() {
             </div>
 
             {/* Micro Quick sound indicator helper */}
-            <div className="pt-4 border-t border-white/5 text-[9px] text-zinc-500 font-bold uppercase tracking-wider text-center">
-              💡 Turn up your speakers & sync with your partner
+            <div className="pt-3 border-t border-white/5 text-[9px] text-zinc-500 font-bold uppercase tracking-wider text-center">
+              💡 Turn up speakers & sync with your partner
             </div>
 
           </div>

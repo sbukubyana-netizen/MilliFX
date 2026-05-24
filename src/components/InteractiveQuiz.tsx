@@ -56,7 +56,7 @@ export default function InteractiveQuiz({ onClose }: QuizProps) {
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative bg-bg-deep border border-border-subtle w-full max-w-xl p-8 md:p-12 rounded-lg shadow-2xl text-center"
+        className="relative bg-bg-deep border border-border-subtle w-full max-w-xl p-5 sm:p-8 md:p-12 rounded-lg shadow-2xl text-center max-h-full overflow-y-auto whitespace-normal"
       >
         <button 
           onClick={onClose}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Bell, Clock, Sun, Moon, ChevronDown } from 'lucide-react';
+import { Search, Bell, Clock, Sun, Moon, ChevronDown, Settings } from 'lucide-react';
 import { TARGET_DATE, CATEGORIES } from '../constants';
 
 interface NavbarProps {
@@ -8,9 +8,12 @@ interface NavbarProps {
   toggleTheme: () => void;
   mood: string;
   setMood: (mood: string) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  onOpenAdmin: () => void;
 }
 
-export default function Navbar({ theme, toggleTheme, mood, setMood }: NavbarProps) {
+export default function Navbar({ theme, toggleTheme, mood, setMood, searchQuery, setSearchQuery, onOpenAdmin }: NavbarProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [showMoodMenu, setShowMoodMenu] = useState(false);
   const [showBrowseMenu, setShowBrowseMenu] = useState(false);
@@ -191,6 +194,17 @@ export default function Navbar({ theme, toggleTheme, mood, setMood }: NavbarProp
           </AnimatePresence>
         </div>
 
+        {/* Studio Dashboard Settings Trigger */}
+        <div 
+          onClick={onOpenAdmin}
+          className={`p-2 rounded-full cursor-pointer transition-colors ${
+            theme === 'dark' ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-black/5 text-black hover:bg-black/10'
+          }`}
+          title="Studio Media Dashboard"
+        >
+          <Settings className="w-4 h-4 md:w-5 md:h-5 text-accent hover:scale-110 hover:rotate-45 transition-all duration-300" />
+        </div>
+
         <div 
           onClick={toggleTheme}
           className={`p-2 rounded-full cursor-pointer transition-colors ${
@@ -209,16 +223,25 @@ export default function Navbar({ theme, toggleTheme, mood, setMood }: NavbarProp
                 animate={{ width: window.innerWidth < 640 ? 90 : 180, opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
                 placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className={`bg-card-bg border border-border-subtle rounded px-2 py-1 text-[11px] focus:outline-none focus:border-accent text-text-main transition-all ${
                   theme === 'dark' ? 'bg-white/5' : 'bg-black/5'
                 }`}
                 autoFocus
-                onBlur={() => setIsSearchOpen(false)}
+                onBlur={() => {
+                  if (!searchQuery) setIsSearchOpen(false);
+                }}
               />
             )}
           </AnimatePresence>
           <Search 
-            onClick={() => setIsSearchOpen(!isSearchOpen)}
+            onClick={() => {
+              setIsSearchOpen(!isSearchOpen);
+              if (isSearchOpen) {
+                setSearchQuery('');
+              }
+            }}
             className={`w-4 h-4 md:w-5 md:h-5 cursor-pointer ml-1.5 ${theme === 'dark' ? 'text-text-dim hover:text-white' : 'text-zinc-600 hover:text-black'}`} 
           />
         </div>

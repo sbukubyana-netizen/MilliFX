@@ -1,0 +1,74 @@
+{
+  "entities": {
+    "love_note": {
+      "title": "Love Note",
+      "description": "Sticky note message pinned on the cozy corner corkboard",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "sender": { "type": "string", "enum": ["Milli 🤍", "Fix 🤍", "Us 🤍"] },
+        "color": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "tilt": { "type": "number" }
+      },
+      "required": ["id", "text", "sender", "color", "createdAt", "tilt"]
+    },
+    "song_dedication": {
+      "title": "Song Dedication",
+      "description": "Heartfelt song dedication left on the soundtrack vinyl player dashboard",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "songTitle": { "type": "string" },
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "message": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "sticker": { "type": "string", "enum": ["heart", "star", "rose", "fire"] }
+      },
+      "required": ["id", "songTitle", "from", "to", "message", "timestamp", "sticker"]
+    },
+    "custom_episode": {
+      "title": "Custom Episode",
+      "description": "Custom user entered episode containing a list of custom pictures or videos",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "previewImageUrl": { "type": "string" },
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "imageUrl": { "type": "string" },
+              "videoUrl": { "type": "string" },
+              "description": { "type": "string" }
+            },
+            "required": ["id", "title", "imageUrl"]
+          }
+        }
+      },
+      "required": ["id", "title", "description", "category", "previewImageUrl", "images"]
+    }
+  },
+  "firestore": {
+    "love_notes": {
+      "schema": "love_note",
+      "description": "Collection of sweet sticky notes shared between Milli and Fix"
+    },
+    "song_dedications": {
+      "schema": "song_dedication",
+      "description": "Collection of romantic song dedications and vinyl memory logs"
+    },
+    "custom_episodes": {
+      "schema": "custom_episode",
+      "description": "Collection of user-added episodes containing pictures/videos and custom captions"
+    }
+  }
+}

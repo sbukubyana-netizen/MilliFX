@@ -210,7 +210,7 @@ export const EPISODES: Episode[] = [
     ]
   },
 
-  // Future Watchlist (5 Episodes)
+  // Future Watchlist (2 Episodes)
   {
     id: 'fut-1',
     title: 'Soweto Derby',
@@ -226,30 +226,6 @@ export const EPISODES: Episode[] = [
     category: 'Future Watchlist',
     previewImageUrl: 'images/cover.png',
     images: [] // User mentioned 104.png to 107.png as covers of episodes, but "no memories created yet"
-  },
-  {
-    id: 'fut-3',
-    title: 'Parisian Escape',
-    description: 'Coming Soon • TBA',
-    category: 'Future Watchlist',
-    previewImageUrl: 'images/104.png',
-    images: []
-  },
-  {
-    id: 'fut-4',
-    title: 'African Safari',
-    description: 'Coming Soon • TBA',
-    category: 'Future Watchlist',
-    previewImageUrl: 'images/105.png',
-    images: []
-  },
-  {
-    id: 'fut-5',
-    title: 'Cozy Beachside Sunset',
-    description: 'Coming Soon • TBA',
-    category: 'Future Watchlist',
-    previewImageUrl: 'images/106.png',
-    images: []
   },
 ];
 

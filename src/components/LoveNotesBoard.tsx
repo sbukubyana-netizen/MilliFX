@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Heart, Plus, Trash2, Edit2, Check, X, ShieldAlert } from 'lucide-react';
+import { Heart, Plus, Trash2, Edit2, Check, X } from 'lucide-react';
+import { collection, onSnapshot, setDoc, deleteDoc, doc } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 
 interface StickyNote {
   id: string;
@@ -55,18 +57,7 @@ const COLORS = [
 ];
 
 export default function LoveNotesBoard() {
-  const [notes, setNotes] = useState<StickyNote[]>(() => {
-    const saved = localStorage.getItem('millifix_love_notes');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return PRESET_NOTES;
-      }
-    }
-    return PRESET_NOTES;
-  });
-
+  const [notes, setNotes] = useState<StickyNote[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
@@ -75,33 +66,67 @@ export default function LoveNotesBoard() {
   const [sender, setSender] = useState<'Milli 🤍' | 'Fix 🤍' | 'Us 🤍'>('Fix 🤍');
   const [selectedColor, setSelectedColor] = useState(COLORS[0].value);
 
+  // Firestore Real-time Sync
   useEffect(() => {
-    localStorage.setItem('millifix_love_notes', JSON.stringify(notes));
-  }, [notes]);
+    const unsub = onSnapshot(collection(db, 'love_notes'), (snapshot) => {
+      const fetchedNotes: StickyNote[] = [];
+      snapshot.forEach((doc) => {
+        fetchedNotes.push(doc.data() as StickyNote);
+      });
+      
+      // Sort notes so new ones are on top (Id-based or date-based fallback sorting)
+      fetchedNotes.sort((a, b) => {
+        const idA = Number(a.id.replace('note-', '')) || 0;
+        const idB = Number(b.id.replace('note-', '')) || 0;
+        return idB - idA;
+      });
 
-  const handlePostNote = () => {
+      setNotes(fetchedNotes);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'love_notes');
+    });
+
+    return () => unsub();
+  }, []);
+
+  const handlePostNote = async () => {
     if (!inputText.trim()) return;
 
     if (editingId) {
-      // Modify existing note
-      setNotes(prev => prev.map(note => note.id === editingId ? {
-        ...note,
+      // Modify existing note in Firestore
+      const originalNote = notes.find(n => n.id === editingId);
+      const updatedNote: StickyNote = {
+        id: editingId,
         text: inputText,
         sender,
-        color: selectedColor
-      } : note));
+        color: selectedColor,
+        createdAt: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+        tilt: originalNote ? originalNote.tilt : (Math.random() * 6 - 3)
+      };
+
+      try {
+        await setDoc(doc(db, 'love_notes', editingId), updatedNote);
+      } catch (e) {
+        handleFirestoreError(e, OperationType.WRITE, `love_notes/${editingId}`);
+      }
       setEditingId(null);
     } else {
-      // Create a brand new note
+      // Create a brand new note in Firestore
+      const newId = `note-${Date.now()}`;
       const newNote: StickyNote = {
-        id: `note-${Date.now()}`,
+        id: newId,
         text: inputText,
         sender,
         color: selectedColor,
         createdAt: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
         tilt: Math.random() * 6 - 3 // Tilt between -3deg and 3deg
       };
-      setNotes(prev => [newNote, ...prev]);
+
+      try {
+        await setDoc(doc(db, 'love_notes', newId), newNote);
+      } catch (e) {
+        handleFirestoreError(e, OperationType.WRITE, `love_notes/${newId}`);
+      }
     }
 
     // Reset Form
@@ -109,9 +134,13 @@ export default function LoveNotesBoard() {
     setIsAdding(false);
   };
 
-  const handleDeleteNote = (id: string, e: React.MouseEvent) => {
+  const handleDeleteNote = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setNotes(prev => prev.filter(note => note.id !== id));
+    try {
+      await deleteDoc(doc(db, 'love_notes', id));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `love_notes/${id}`);
+    }
   };
 
   const handleStartEdit = (note: StickyNote, e: React.MouseEvent) => {

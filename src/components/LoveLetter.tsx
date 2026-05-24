@@ -46,6 +46,14 @@ export default function LoveLetter({ isVisible }: LoveLetterProps) {
     return localStorage.getItem('millifix_loveletter_seen') === 'true';
   });
 
+  const handleClose = () => {
+    setIsOpen(false);
+    if (!isSealed) {
+      setHasBeenSeen(true);
+      localStorage.setItem('millifix_loveletter_seen', 'true');
+    }
+  };
+
   if (!isVisible || hasBeenSeen) return null;
 
   return (
@@ -86,7 +94,7 @@ export default function LoveLetter({ isVisible }: LoveLetterProps) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setIsOpen(false)}
+              onClick={handleClose}
               className="absolute inset-0 bg-black/90 backdrop-blur-md"
             />
 
@@ -105,7 +113,7 @@ export default function LoveLetter({ isVisible }: LoveLetterProps) {
               <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-[#c5bcb0]" />
 
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={handleClose}
                 className="absolute top-6 right-6 text-[#8a7f6e] hover:text-[#ff2d55] transition-colors bg-[#f1eae0] p-1.5 rounded-full border border-[#e0d6c8]"
               >
                 <X className="w-5 h-5" />

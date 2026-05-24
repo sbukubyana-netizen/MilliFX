@@ -58,18 +58,18 @@ export default function ImageModal({ item, onClose, onNext, onPrev, isPaused, on
 
             <button 
               onClick={(e) => { e.stopPropagation(); onClose(); }}
-              className="pointer-events-auto absolute top-4 md:top-8 right-4 md:right-8 z-50 bg-black/40 text-white p-3 rounded-full hover:bg-red-500 transition-colors backdrop-blur-md border border-white/10"
+              className="pointer-events-auto absolute top-3 sm:top-4 md:top-8 right-3 sm:right-4 md:right-8 z-50 bg-black/40 text-white p-2.5 sm:p-3 rounded-full hover:bg-red-500 transition-colors backdrop-blur-md border border-white/10"
               title="Close"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
 
             <button 
               onClick={(e) => { e.stopPropagation(); onTogglePause?.(); }}
-              className="pointer-events-auto absolute top-4 md:top-8 right-20 md:right-24 z-50 bg-black/40 text-white p-3 rounded-full hover:bg-accent transition-colors backdrop-blur-md border border-white/10"
+              className="pointer-events-auto absolute top-3 sm:top-4 md:top-8 right-14 sm:right-16 md:right-24 z-50 bg-black/40 text-white p-2.5 sm:p-3 rounded-full hover:bg-accent transition-colors backdrop-blur-md border border-white/10"
               title={isPaused ? "Resume Slideshow" : "Pause Slideshow"}
             >
-              {isPaused ? <Play className="w-6 h-6 fill-current" /> : <Pause className="w-6 h-6 fill-current" />}
+              {isPaused ? <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-current" /> : <Pause className="w-5 h-5 sm:w-6 sm:h-6 fill-current" />}
             </button>
 
           <div className="w-full h-full flex items-center justify-center pointer-events-auto overflow-hidden bg-black select-none">
@@ -104,7 +104,7 @@ export default function ImageModal({ item, onClose, onNext, onPrev, isPaused, on
             </AnimatePresence>
             
             {/* Immersive Overlay Info */}
-            <div className="absolute bottom-0 left-0 w-full p-6 md:p-16 bg-linear-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end pointer-events-none">
+            <div className="absolute bottom-0 left-0 w-full p-4 sm:p-6 md:p-16 bg-linear-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end pointer-events-none">
               {/* Autoplay Progress Bar */}
               <div className="absolute top-0 left-0 w-full h-1 bg-white/5">
                 <motion.div 
@@ -122,13 +122,13 @@ export default function ImageModal({ item, onClose, onNext, onPrev, isPaused, on
                 key={item.title}
                 className="max-w-4xl"
               >
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-accent font-black uppercase tracking-[0.4em] text-[10px]">Cinema Mode</span>
+                <div className="flex items-center gap-3 mb-1.5 sm:mb-2">
+                  <span className="text-accent font-black uppercase tracking-[0.4em] text-[9px] sm:text-[10px]">Cinema Mode</span>
                   <div className="h-px w-8 bg-accent/30" />
                 </div>
-                <h2 className="text-4xl md:text-7xl font-black text-white tracking-tighter mb-4 drop-shadow-2xl leading-none">{item.title}</h2>
-                <div className="flex items-center gap-6 text-white/50 text-[10px] md:text-xs font-bold uppercase tracking-[0.2em]">
-                  <span className="flex items-center gap-2"><Heart className="w-3 h-3 text-accent fill-current" /> Moment Captured</span>
+                <h2 className="text-2xl sm:text-4xl md:text-7xl font-black text-white tracking-tighter mb-2 sm:mb-4 drop-shadow-2xl leading-tight">{item.title}</h2>
+                <div className="flex items-center gap-4 sm:gap-6 text-white/50 text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] flex-wrap">
+                  <span className="flex items-center gap-1.5"><Heart className="w-3 h-3 text-accent fill-current" /> Moment Captured</span>
                   <span>MilliFix Original</span>
                   <span className="text-white/20 whitespace-nowrap hidden sm:inline">18 JANUARY 2027</span>
                 </div>
