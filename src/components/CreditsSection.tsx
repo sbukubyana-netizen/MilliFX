@@ -15,7 +15,7 @@ export default function CreditsSection() {
       >
         <div className="space-y-4">
           <h4 className="text-accent font-black uppercase tracking-[0.4em] text-sm md:text-base">
-            MilliFix Essentials
+            MilliSbu Essentials
           </h4>
           <p className="text-text-dim text-xs md:text-sm font-medium tracking-widest uppercase">
             Special Edition Original Series

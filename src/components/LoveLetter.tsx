@@ -4,30 +4,41 @@ import { X, Heart, Mail, ChevronLeft, ChevronRight, BookOpen } from 'lucide-reac
 
 interface LoveLetterProps {
   isVisible: boolean;
+  profile?: 'Girlfriend' | 'Boyfriend';
 }
 
-const PAGES = [
-  {
-    title: "Chapter I: The Spark ✨",
-    content: `Dear Millicent,
+function getPages(profile?: 'Girlfriend' | 'Boyfriend') {
+  const isBoyfriend = profile === 'Boyfriend';
+  const recipientName = isBoyfriend ? "Sibusiso" : "Millicent";
+  
+  return [
+    {
+      title: "Chapter I: The Spark ✨",
+      content: `Dear ${recipientName},
 
 Do you remember how everything started? In a world full of noise, you became my quiet, beautiful refuge. Looking back at the first moments we shared, I realize now that my heart had already chosen you before my mind could even process it. 
 
 Every single video, photograph, and memory on this website exists because you made ordinary days feel like a cinematic masterpiece. You are my Favorite Star in our private cinema, and I would watch our movie over and over again, for a million lifetimes.`
-  },
-  {
-    title: "Chapter II: 5 Things I Adore About You 🌸",
-    content: `If I had to list why my heart beats for you, a single lifetime wouldn't be enough. But here are five things that make me fall for you every single day:
+    },
+    {
+      title: "Chapter II: 5 Things I Adore About You 🌸",
+      content: isBoyfriend ? `If I had to list why my heart beats for you, a single lifetime wouldn't be enough. But here are five things that make me fall for you every single day:
+
+1. Your Heart ❤️: The kindest, most gorgeous sanctuary I have ever known.
+2. Your Strength: The quiet, incredible resilience with which you carry your beautiful soul.
+3. Your Giggles: Those spontaneous, warm sounds of happiness that double as my favorite soundtrack.
+4. Your Eyes: Through them, I see a future full of warmth, peace, and beautiful adventures.
+5. Your Presence: The safest, most comforting space in the universe.` : `If I had to list why my heart beats for you, a single lifetime wouldn't be enough. But here are five things that make me fall for you every single day:
 
 1. Your Smile 😍: The absolute light of my life. It heals any shadow in my day within seconds.
 2. Your Strength: The graceful, quiet resilience with which you carry your beautiful soul.
 3. Your Giggles: Those spontaneous, pure sounds of happiness that double as my favorite soundtrack.
 4. Your Eyes: Through them, I see a future full of warmth, peace, and beautiful adventures.
 5. Your Heart: The kindest, most generous sanctuary I have ever known.`
-  },
-  {
-    title: "Chapter III: Our Forever Promise 💍",
-    content: `As we look toward our next big milestone (and watch that beautiful countdown tick away), I want to make a few solemn promises to you:
+    },
+    {
+      title: "Chapter III: Our Forever Promise 💍",
+      content: `As we look toward our next big milestone (and watch that beautiful countdown tick away), I want to make a few solemn promises to you:
 
 I promise to listen to you, not just with my ears, but with my soul. I promise to hold your hand through the stormy seasons and dance with you under the sunny skies. I promise to always remember the magic of how we began, and to actively build a beautiful future together, frame by frame, memory by memory.
 
@@ -35,10 +46,12 @@ You are my today, my tomorrow, and my forever.
 
 With all my love,
 Your Favorite Person 🤍`
-  }
-];
+    }
+  ];
+}
 
-export default function LoveLetter({ isVisible }: LoveLetterProps) {
+export default function LoveLetter({ isVisible, profile }: LoveLetterProps) {
+  const pages = getPages(profile);
   const [isOpen, setIsOpen] = useState(false);
   const [isSealed, setIsSealed] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
@@ -70,7 +83,7 @@ export default function LoveLetter({ isVisible }: LoveLetterProps) {
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           className="relative w-14 h-14 rounded-full bg-accent text-white flex items-center justify-center shadow-[0_10px_30px_rgba(var(--accent-rgb),0.5)] border border-white/20 cursor-pointer group"
-          title="A Letter for Millicent 🤍"
+          title={profile === 'Boyfriend' ? "A Letter for Sibusiso 🤍" : "A Letter for Millicent 🤍"}
         >
           <Mail className="w-6 h-6 group-hover:rotate-12 transition-transform" />
           <span className="absolute -top-1 -right-1 flex h-3 w-3">
@@ -80,7 +93,7 @@ export default function LoveLetter({ isVisible }: LoveLetterProps) {
           
           {/* Pulsing Label Tooltip */}
           <span className="absolute right-16 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-md bg-bg-deep border border-border-subtle text-[11px] font-bold uppercase tracking-wider text-text-main shadow-xl whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-            A Letter for Milli 💌
+            A Letter for {profile === 'Boyfriend' ? 'Sbu' : 'Milli'} 💌
           </span>
         </motion.button>
       </motion.div>
@@ -130,7 +143,7 @@ export default function LoveLetter({ isVisible }: LoveLetterProps) {
                     className="flex flex-col items-center space-y-8 text-center"
                   >
                     <div className="space-y-2">
-                      <span className="text-accent font-black uppercase tracking-[0.3em] text-[10px] block">MilliFix Private Vault</span>
+                      <span className="text-accent font-black uppercase tracking-[0.3em] text-[10px] block">MilliSbu Private Vault</span>
                       <h3 className="text-2xl md:text-3xl font-serif-casual font-black text-[#564e43] tracking-tight">
                         A Letter Sealed with Love 🤍
                       </h3>
@@ -169,18 +182,18 @@ export default function LoveLetter({ isVisible }: LoveLetterProps) {
                       <div className="flex items-center gap-2">
                         <BookOpen className="w-4 h-4 text-accent" />
                         <span className="text-[10px] uppercase font-black text-[#968671] tracking-widest">
-                          {PAGES[currentPage].title}
+                          {pages[currentPage].title}
                         </span>
                       </div>
                       <div className="text-[10px] font-bold text-[#968671] tracking-widest">
-                        PAGE {currentPage + 1} OF {PAGES.length}
+                        PAGE {currentPage + 1} OF {pages.length}
                       </div>
                     </div>
 
                     {/* Letter Body written in handwritten Cursive style */}
                     <div className="flex-grow flex items-center justify-center py-4">
                       <p className="font-cursive text-xl md:text-2xl text-[#4a3e30] leading-relaxed whitespace-pre-wrap select-text selection:bg-accent/20">
-                        {PAGES[currentPage].content}
+                        {pages[currentPage].content}
                       </p>
                     </div>
 
@@ -201,7 +214,7 @@ export default function LoveLetter({ isVisible }: LoveLetterProps) {
                       {/* Micro floating hearts element */}
                       <Heart className="w-4 h-4 text-accent fill-current animate-pulse opacity-60" />
 
-                      {currentPage < PAGES.length - 1 ? (
+                      {currentPage < pages.length - 1 ? (
                         <button
                           onClick={() => setCurrentPage(idx => idx + 1)}
                           className="flex items-center gap-1.5 px-3 py-2 rounded text-xs font-bold uppercase tracking-widest text-[#8a7f6e] hover:text-accent hover:bg-[#ebd9c3]/20 transition-all"

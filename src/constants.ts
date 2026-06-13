@@ -18,6 +18,7 @@ export interface Episode {
   category: string;
   previewImageUrl: string;
   images: Memory[];
+  profile?: 'Girlfriend' | 'Boyfriend' | 'Us';
 }
 
 export type AppStage = 'profile-selection' | 'trailer' | 'home' | 'countdown';
@@ -230,7 +231,7 @@ export const EPISODES: Episode[] = [
 ];
 
 export const CATEGORIES = [
-  'Global Top 10 in MilliFix',
+  'Global Top 10 in MilliSbu',
   'My Favorite Moments',
   'Her Smile Collection 😍',
   'Can’t Stop Looking at You',
@@ -250,7 +251,7 @@ export const CAST_AND_CREDITS = [
 export const getNextAnniversary = () => {
   const now = new Date();
   const year = now.getFullYear();
-  let next = new Date(year, 0, 18);
+  let next = new Date(year, 0, 18); // Jan 18
   if (now > next) {
     next = new Date(year + 1, 0, 18);
   }
@@ -258,3 +259,63 @@ export const getNextAnniversary = () => {
 };
 
 export const TARGET_DATE = getNextAnniversary();
+
+export interface ImportantDate {
+  id: string;
+  name: string;
+  dateStr: string;
+  month: number; // 0-indexed month (0 = Jan, 6 = Jul)
+  day: number;
+  celebrationTitle: string;
+  celebrationBody: string;
+  badge: string;
+  bgSeed: string;
+}
+
+export const getNextOccurrence = (month: number, day: number) => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  let nextDate = new Date(currentYear, month, day, 0, 0, 0);
+  
+  // If the date has already passed this year, set relative to the next year
+  if (now > nextDate) {
+    nextDate = new Date(currentYear + 1, month, day, 0, 0, 0);
+  }
+  return nextDate;
+};
+
+export const IMPORTANT_DATES: ImportantDate[] = [
+  {
+    id: 'anniversary',
+    name: 'Our Anniversary 💖',
+    dateStr: '18 January',
+    month: 0,
+    day: 18,
+    celebrationTitle: "Happy Anniversary Milli & Sbu! 💕",
+    celebrationBody: "Today we celebrate another incredible year together of smiles, deep jokes, beautiful fights, and growing closer! You are my absolute main character forever! 🥂✨",
+    badge: "Milestone Event",
+    bgSeed: "milli-anniversary-bg"
+  },
+  {
+    id: 'milli-birthday',
+    name: "Milli's Birthday 🎂",
+    dateStr: '12 July',
+    month: 6,
+    day: 12,
+    celebrationTitle: "Happy Birthday Milli! 🎉🌸",
+    celebrationBody: "Wishing the most beautiful, wonderful leading lady the happiest of birthdays today! Thank you for filling our world with radiant smiles and joy! I love you so much! Dearest Millicent 💖✨",
+    badge: "Girlfriend's Big Day",
+    bgSeed: "milli-birthday-bg"
+  },
+  {
+    id: 'sbu-birthday',
+    name: "Sbu's Birthday 🎂",
+    dateStr: '26 January',
+    month: 0,
+    day: 26,
+    celebrationTitle: "Happy Birthday Sbu! 🍕🍻",
+    celebrationBody: "Saluting the coolest director of our love story! Wishing you the most incredible, blessed birthday, Dearest Sibusiso! Keep shining bright! 🌟🎂",
+    badge: "Boyfriend's Big Day",
+    bgSeed: "sbu-birthday-bg"
+  }
+];

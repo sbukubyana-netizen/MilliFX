@@ -129,7 +129,7 @@ export default function ImageModal({ item, onClose, onNext, onPrev, isPaused, on
                 <h2 className="text-2xl sm:text-4xl md:text-7xl font-black text-white tracking-tighter mb-2 sm:mb-4 drop-shadow-2xl leading-tight">{item.title}</h2>
                 <div className="flex items-center gap-4 sm:gap-6 text-white/50 text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] flex-wrap">
                   <span className="flex items-center gap-1.5"><Heart className="w-3 h-3 text-accent fill-current" /> Moment Captured</span>
-                  <span>MilliFix Original</span>
+                  <span>MilliSbu Original</span>
                   <span className="text-white/20 whitespace-nowrap hidden sm:inline">18 JANUARY 2027</span>
                 </div>
               </motion.div>

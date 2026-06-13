@@ -21,14 +21,15 @@ service cloud.firestore {
 
     // Validation for Love Note sticky notes
     function isValidLoveNote(data) {
-      return data.keys().hasAll(['id', 'text', 'sender', 'color', 'createdAt', 'tilt'])
-        && data.keys().size() == 6
+      return data.keys().hasAll(['id', 'sender', 'color', 'createdAt', 'tilt'])
         && data.id is string && data.id.size() <= 100
-        && data.text is string && data.text.size() <= 500
-        && data.sender is string && (data.sender == 'Milli 🤍' || data.sender == 'Fix 🤍' || data.sender == 'Us 🤍')
+        && data.sender is string && (data.sender == 'Milli 🤍' || data.sender == 'Fix 🤍' || data.sender == 'Us 🤍' || data.sender == 'Sbu 🤍')
         && data.color is string && data.color.size() <= 200
         && data.createdAt is string && data.createdAt.size() <= 50
-        && (data.tilt is int || data.tilt is float);
+        && (data.tilt is int || data.tilt is float)
+        && (!data.keys().hasAny(['text']) || (data.text is string && data.text.size() <= 1000))
+        && (!data.keys().hasAny(['audioUrl']) || (data.audioUrl is string && data.audioUrl.size() <= 1200000))
+        && (!data.keys().hasAny(['audioDuration']) || (data.audioDuration is int || data.audioDuration is float));
     }
 
     // Validation for Song Dedications
@@ -55,6 +56,43 @@ service cloud.firestore {
         && data.images is list;
     }
 
+    // Validation for Live Locations
+    function isValidLiveLocation(data) {
+      return data.keys().hasAll(['id', 'name', 'lat', 'lng', 'isSharing', 'updatedAt'])
+        && data.id is string && data.id.size() <= 100
+        && data.name is string && data.name.size() <= 100
+        && (data.lat is int || data.lat is float)
+        && (data.lng is int || data.lng is float)
+        && data.isSharing is bool
+        && data.updatedAt is string && data.updatedAt.size() <= 100
+        && (!data.keys().hasAny(['batteryLevel']) || data.batteryLevel is int || data.batteryLevel is float)
+        && (!data.keys().hasAny(['statusMessage']) || (data.statusMessage is string && data.statusMessage.size() <= 200));
+    }
+
+    // Validation for Daily Notes
+    function isValidDailyNote(data) {
+      return data.keys().hasAll(['id', 'subject', 'body', 'period', 'profile', 'createdAt'])
+        && data.keys().size() == 6
+        && data.id is string && data.id.size() <= 100
+        && data.subject is string && data.subject.size() <= 200
+        && data.body is string && data.body.size() <= 1000
+        && data.period is string && (data.period == 'morning' || data.period == 'afternoon' || data.period == 'evening' || data.period == 'night')
+        && data.profile is string && (data.profile == 'Girlfriend' || data.profile == 'Boyfriend')
+        && data.createdAt is string && data.createdAt.size() <= 100;
+    }
+
+    // Validation for Studio Settings
+    function isValidStudioSetting(data) {
+      return data.keys().hasAll(['id', 'trailerVideoUrl', 'boyfriendProfileImage', 'girlfriendProfileImage', 'bannerVideos', 'boyfriendBannerVideos', 'girlfriendBannerVideos'])
+        && data.id is string && data.id.size() <= 100
+        && data.trailerVideoUrl is string && data.trailerVideoUrl.size() <= 2000
+        && data.boyfriendProfileImage is string && data.boyfriendProfileImage.size() <= 2000
+        && data.girlfriendProfileImage is string && data.girlfriendProfileImage.size() <= 2000
+        && data.bannerVideos is list
+        && data.boyfriendBannerVideos is list
+        && data.girlfriendBannerVideos is list;
+    }
+
     // Rules for love_notes collection
     match /love_notes/{noteId} {
       allow read: if true;
@@ -77,6 +115,30 @@ service cloud.firestore {
       allow create: if isValidId(episodeId) && isValidCustomEpisode(incoming()) && incoming().id == episodeId;
       allow update: if isValidId(episodeId) && isValidCustomEpisode(incoming()) && incoming().id == episodeId;
       allow delete: if isValidId(episodeId);
+    }
+
+    // Rules for daily_notes collection
+    match /daily_notes/{noteId} {
+      allow read: if true;
+      allow create: if isValidId(noteId) && isValidDailyNote(incoming()) && incoming().id == noteId;
+      allow update: if isValidId(noteId) && isValidDailyNote(incoming()) && incoming().id == noteId;
+      allow delete: if isValidId(noteId);
+    }
+
+    // Rules for live_locations collection
+    match /live_locations/{locationId} {
+      allow read: if true;
+      allow create: if isValidId(locationId) && isValidLiveLocation(incoming()) && incoming().id == locationId;
+      allow update: if isValidId(locationId) && isValidLiveLocation(incoming()) && incoming().id == locationId;
+      allow delete: if isValidId(locationId);
+    }
+
+    // Rules for studio_settings collection
+    match /studio_settings/{configId} {
+      allow read: if true;
+      allow create: if isValidId(configId) && isValidStudioSetting(incoming()) && incoming().id == configId;
+      allow update: if isValidId(configId) && isValidStudioSetting(incoming()) && incoming().id == configId;
+      allow delete: if isValidId(configId);
     }
   }
 }

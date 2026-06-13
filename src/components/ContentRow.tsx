@@ -14,7 +14,7 @@ export const ContentRow: React.FC<ContentRowProps> = ({ id, title, episodes, onS
   return (
     <div className="py-6 space-y-3" id={id}>
       <div className="px-6 md:px-12 flex items-center justify-between">
-        <h3 className="text-lg md:text-xl font-bold transition-colors">
+        <h3 className="text-base sm:text-lg md:text-xl lg:text-2xl font-black tracking-tight transition-colors">
           {title}
         </h3>
       </div>
@@ -38,7 +38,7 @@ const EpisodeCard: React.FC<{ episode: Episode; onClick: () => void }> = ({ epis
       whileHover={{ scale: 1.05, zIndex: 50 }}
       transition={{ duration: 0.3 }}
       onClick={onClick}
-      className="flex-shrink-0 w-64 md:w-80 rounded-sm shadow-2xl overflow-hidden bg-card-bg relative group flex flex-col border border-border-subtle cursor-pointer hover:border-accent/50"
+      className="flex-shrink-0 w-[220px] sm:w-[280px] md:w-[320px] max-w-full rounded-sm shadow-2xl overflow-hidden bg-card-bg relative group flex flex-col border border-border-subtle cursor-pointer hover:border-accent/50 transition-all"
     >
       <div className="aspect-video relative overflow-hidden">
         <img

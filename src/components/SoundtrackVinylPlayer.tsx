@@ -94,8 +94,8 @@ export default function SoundtrackVinylPlayer() {
 
   // Dedication form state
   const [dedFormSong, setDedFormSong] = useState(VINYL_PLAYLIST[0].title);
-  const [dedFormFrom, setDedFormFrom] = useState<'Fix 🤍' | 'Milli 🤍' | 'Us 🤍'>('Fix 🤍');
-  const [dedFormTo, setDedFormTo] = useState<'Milli 🤍' | 'Fix 🤍' | 'Us 🤍'>('Milli 🤍');
+  const [dedFormFrom, setDedFormFrom] = useState<'Sbu 🤍' | 'Milli 🤍'>('Sbu 🤍');
+  const [dedFormTo, setDedFormTo] = useState<'Milli 🤍' | 'Sbu 🤍'>('Milli 🤍');
   const [dedFormMsg, setDedFormMsg] = useState('');
   const [dedSticker, setDedSticker] = useState<'heart' | 'star' | 'rose' | 'fire'>('heart');
   const [showDedCreator, setShowDedCreator] = useState(false);
@@ -351,12 +351,12 @@ export default function SoundtrackVinylPlayer() {
         <div className="text-center space-y-3 max-w-2xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 border border-accent/20">
             <Music className="w-3.5 h-3.5 text-accent animate-bounce" />
-            <span className="text-accent text-[10px] font-black uppercase tracking-[0.25em]">Exclusive Soundtrack</span>
+            <span className="text-accent text-[9px] sm:text-[10px] font-black uppercase tracking-[0.25em]">Exclusive Soundtrack</span>
           </div>
-          <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tighter">
             The Soundtrack of Us
           </h2>
-          <p className="text-text-dim text-xs md:text-sm">
+          <p className="text-text-dim text-xs md:text-sm px-4">
             Spin our private romantic vinyl! Choose your favorite melody, upload custom songs, read heartfelt memories, and drop dedications directly onto our dashboard wall 🤍
           </p>
         </div>
@@ -569,7 +569,7 @@ export default function SoundtrackVinylPlayer() {
             
             <div className="space-y-3 overflow-y-auto no-scrollbar pr-1 flex-1">
               <div className="flex items-center justify-between pb-1 border-b border-white/5 mb-3">
-                <span className="text-[10px] font-black uppercase tracking-widest text-text-dim">MilliFix Tracklist</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-text-dim">MilliSbu Tracklist</span>
                 <span className="text-[10px] font-black tracking-wider text-accent uppercase font-mono">{playlist.length} Chapters</span>
               </div>
 
@@ -772,9 +772,8 @@ export default function SoundtrackVinylPlayer() {
                       onChange={(e) => setDedFormFrom(e.target.value as any)}
                       className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-accent font-medium text-center"
                     >
-                      <option value="Fix 🤍" className="bg-bg-deep">Fix 🤍</option>
+                      <option value="Sbu 🤍" className="bg-bg-deep">Sbu 🤍</option>
                       <option value="Milli 🤍" className="bg-bg-deep">Milli 🤍</option>
-                      <option value="Us 🤍" className="bg-bg-deep">Us 🤍</option>
                     </select>
                   </div>
 
@@ -786,8 +785,7 @@ export default function SoundtrackVinylPlayer() {
                       className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-accent font-medium text-center"
                     >
                       <option value="Milli 🤍" className="bg-bg-deep">Milli 🤍</option>
-                      <option value="Fix 🤍" className="bg-bg-deep">Fix 🤍</option>
-                      <option value="Us 🤍" className="bg-bg-deep">Us 🤍</option>
+                      <option value="Sbu 🤍" className="bg-bg-deep">Sbu 🤍</option>
                     </select>
                   </div>
                 </div>

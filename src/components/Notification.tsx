@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MessageSquareHeart, X } from 'lucide-react';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 
 const PERIOD_MESSAGES = {
   morning: [
@@ -47,11 +49,44 @@ const PERIOD_MESSAGES = {
 
 type Period = keyof typeof PERIOD_MESSAGES;
 
+interface DBNotificationMessage {
+  id: string;
+  subject: string;
+  body: string;
+  period: Period;
+  profile: 'Girlfriend' | 'Boyfriend';
+  createdAt: string;
+}
+
 export default function Notification() {
   const [show, setShow] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [currentMessage, setCurrentMessage] = useState(PERIOD_MESSAGES.morning[0]);
+  const [customNotes, setCustomNotes] = useState<DBNotificationMessage[]>([]);
+  const [currentMessage, setCurrentMessage] = useState<{
+    subject: string;
+    body: string;
+    profile?: 'Girlfriend' | 'Boyfriend';
+    custom?: boolean;
+  }>(PERIOD_MESSAGES.morning[0]);
 
+  // Subscribe to custom daily notes in Firestore
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'daily_notes'), (snapshot) => {
+      const notesList: DBNotificationMessage[] = [];
+      snapshot.forEach((doc) => {
+        notesList.push(doc.data() as DBNotificationMessage);
+      });
+      // Sort newest first
+      notesList.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      setCustomNotes(notesList);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'daily_notes');
+    });
+
+    return () => unsub();
+  }, []);
+
+  // Compute current message based on hour, day-of-year, and custom database notes
   useEffect(() => {
     const now = new Date();
     const hour = now.getHours();
@@ -62,14 +97,36 @@ export default function Notification() {
     else if (hour >= 17 && hour < 22) period = 'evening';
     else period = 'night';
 
-    // Stable selection within the period pool based on day of year
-    const start = new Date(now.getFullYear(), 0, 0);
-    const diff = now.getTime() - start.getTime();
-    const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
-    const pool = PERIOD_MESSAGES[period];
-    setCurrentMessage(pool[dayOfYear % pool.length]);
+    // Find if there is a custom note for this period
+    const customForPeriod = customNotes.filter(note => note.period === period);
 
+    if (customForPeriod.length > 0) {
+      // Use the latest custom note for this period
+      const latestNote = customForPeriod[0];
+      setCurrentMessage({
+        subject: latestNote.subject,
+        body: latestNote.body,
+        profile: latestNote.profile,
+        custom: true
+      });
+    } else {
+      // Stable selection within the preset period pool based on day of year
+      const start = new Date(now.getFullYear(), 0, 0);
+      const diff = now.getTime() - start.getTime();
+      const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+      
+      const pool = PERIOD_MESSAGES[period];
+      const fallbackMsg = pool[dayOfYear % pool.length];
+      setCurrentMessage({
+        subject: fallbackMsg.subject,
+        body: fallbackMsg.body,
+        custom: false
+      });
+    }
+  }, [customNotes]);
+
+  // Trigger delayed entry notification
+  useEffect(() => {
     const timer = setTimeout(() => {
       setShow(true);
     }, 10000); // Show after 10 seconds
@@ -86,6 +143,7 @@ export default function Notification() {
             exit={{ x: 350, opacity: 0 }}
             className="fixed bottom-54 right-8 z-[100] bg-card-bg border border-border-subtle p-4 rounded shadow-2xl flex items-center gap-4 cursor-pointer hover:bg-card-bg transition-colors"
             onClick={() => setIsOpen(true)}
+            id="floating-daily-thought-notification"
           >
             <div className="w-10 h-10 bg-accent rounded-sm flex items-center justify-center text-white">
               <MessageSquareHeart className="w-5 h-5" />
@@ -106,7 +164,7 @@ export default function Notification() {
 
       <AnimatePresence>
         {isOpen && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" id="daily-thought-letter-modal">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -128,14 +186,23 @@ export default function Notification() {
               </button>
               
               <div className="space-y-6 text-xl md:text-2xl leading-relaxed">
-                <p className="text-accent font-bold italic">Dearest Milli,</p>
+                <p className="text-accent font-bold italic">
+                  {currentMessage.profile === 'Boyfriend' ? 'Dearest Girlfriend Milli,' : 
+                   currentMessage.profile === 'Girlfriend' ? 'Dear Boyfriend Sbu,' : 'Dearest Milli,'}
+                </p>
                 <p className="text-text-dim">
                   {currentMessage.body}
                 </p>
                 <p className="text-text-dim italic text-sm">
-                  This place was built with love. Every second of that countdown is a witness to how much I care.
+                  {currentMessage.custom 
+                    ? 'This thought was lovingly crafted on the central studio platform.' 
+                    : 'This place was built with love. Every second of that countdown is a witness to how much I care.'
+                  }
                 </p>
-                <p className="text-right font-bold italic pt-4 text-text-main">— Forever Yours 🤍</p>
+                <p className="text-right font-bold italic pt-4 text-text-main">
+                  — {currentMessage.profile === 'Girlfriend' ? 'Your Milli 🤍' : 
+                     currentMessage.profile === 'Boyfriend' ? 'Your Sbu 🤍' : 'Forever Yours 🤍'}
+                </p>
               </div>
             </motion.div>
           </div>

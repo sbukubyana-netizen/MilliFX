@@ -19,31 +19,120 @@ import CountdownPage from './components/CountdownPage';
 import BackgroundMusic from './components/BackgroundMusic';
 import Notification from './components/Notification';
 import CountdownBox from './components/CountdownBox';
+import CelebrationPortal from './components/CelebrationPortal';
 import LoveLetter from './components/LoveLetter';
 import LoveNotesBoard from './components/LoveNotesBoard';
 import SoundtrackVinylPlayer from './components/SoundtrackVinylPlayer';
 import AdminMediaSettings from './components/AdminMediaSettings';
-import { collection, onSnapshot } from 'firebase/firestore';
+import LiveLocationTracker from './components/LiveLocationTracker';
+import AppBackground from './components/AppBackground';
+import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { PlayCircle } from 'lucide-react';
 
 export default function App() {
   const [stage, setStage] = useState<AppStage>('profile-selection');
+  const [selectedProfile, setSelectedProfile] = useState<'Girlfriend' | 'Boyfriend' | 'Us'>(() => {
+    const saved = localStorage.getItem('millifix_profile');
+    return (saved as 'Girlfriend' | 'Boyfriend' | 'Us') || 'Girlfriend';
+  });
+  const [celebrationEvent, setCelebrationEvent] = useState<{ title: string; body: string; name: string } | null>(null);
   const [selectedMemoryIndex, setSelectedMemoryIndex] = useState<number | null>(null);
   const [currentCollection, setCurrentCollection] = useState<Memory[]>([]);
   const [activeEpisodeId, setActiveEpisodeId] = useState<string | null>(null);
   const [isMusicPaused, setIsMusicPaused] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [mood, setMood] = useState('romantic');
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [isSlideshowPaused, setIsSlideshowPaused] = useState(false);
   const [showTbaEpisode, setShowTbaEpisode] = useState<Episode | null>(null);
+
+  // Predefined customizable theme presets
+  const COLOR_THEMES = [
+    { id: 'romantic', name: 'Romantic Pink/Red', hex: '#ff2d55', rgb: '255, 45, 85' },
+    { id: 'sunset', name: 'Sunset Warm Orange', hex: '#ff8c00', rgb: '255, 140, 0' },
+    { id: 'royal', name: 'Royal Velvet Purple', hex: '#7c3aed', rgb: '124, 58, 237' },
+    { id: 'gold', name: 'Golden Retro Nostalgia', hex: '#d4af37', rgb: '212, 175, 55' },
+    { id: 'rose', name: 'Deep Midnight Rose', hex: '#e11d48', rgb: '225, 29, 72' },
+    { id: 'teal', name: 'Ocean Breathe Teal', hex: '#0d9488', rgb: '13, 148, 136' },
+    { id: 'emerald', name: 'Emerald Forest Green', hex: '#059669', rgb: '5, 150, 105' },
+  ];
 
   // Synchronized Dynamic Settings states
   const [customEpisodes, setCustomEpisodes] = useState<Episode[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [adminSuccessMessage, setAdminSuccessMessage] = useState<string | null>(null);
+
+  const [studioSettings, setStudioSettings] = useState<{
+    trailerVideoUrl: string;
+    boyfriendProfileImage: string;
+    girlfriendProfileImage: string;
+    usProfileImage?: string;
+    bannerVideos: string[];
+    boyfriendBannerVideos: string[];
+    girlfriendBannerVideos: string[];
+    usBannerVideos?: string[];
+    backgroundSoundEnabled?: boolean;
+    colorTheme?: string;
+  }>({
+    trailerVideoUrl: '/videos/8.mp4',
+    boyfriendProfileImage: '',
+    girlfriendProfileImage: 'images/millicent1.jpg',
+    usProfileImage: '',
+    bannerVideos: ['videos/6.mp4', 'videos/7.mp4'],
+    boyfriendBannerVideos: [],
+    girlfriendBannerVideos: [],
+    usBannerVideos: [],
+    backgroundSoundEnabled: false,
+    colorTheme: 'romantic'
+  });
+
+  // Subscribe to real-time studio customizations in Firestore
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'studio_settings', 'config'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setStudioSettings({
+          trailerVideoUrl: data.trailerVideoUrl || '/videos/8.mp4',
+          boyfriendProfileImage: data.boyfriendProfileImage || '',
+          girlfriendProfileImage: data.girlfriendProfileImage || 'images/millicent1.jpg',
+          usProfileImage: data.usProfileImage || '',
+          bannerVideos: data.bannerVideos || ['videos/6.mp4', 'videos/7.mp4'],
+          boyfriendBannerVideos: data.boyfriendBannerVideos || [],
+          girlfriendBannerVideos: data.girlfriendBannerVideos || [],
+          usBannerVideos: data.usBannerVideos || [],
+          backgroundSoundEnabled: data.backgroundSoundEnabled ?? false,
+          colorTheme: data.colorTheme || 'romantic'
+        });
+      }
+    }, (error) => {
+      console.error('Error fetching studio customizations:', error);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleUpdateStudioSettings = async (settings: {
+    trailerVideoUrl: string;
+    boyfriendProfileImage: string;
+    girlfriendProfileImage: string;
+    usProfileImage: string;
+    bannerVideos: string[];
+    boyfriendBannerVideos: string[];
+    girlfriendBannerVideos: string[];
+    usBannerVideos: string[];
+    backgroundSoundEnabled: boolean;
+    colorTheme: string;
+  }) => {
+    try {
+      await setDoc(doc(db, 'studio_settings', 'config'), {
+        id: 'config',
+        ...settings
+      });
+    } catch (error) {
+      console.error('Error updating studio settings:', error);
+      throw error;
+    }
+  };
 
   // View & Like Tracking State
   const [userStats, setUserStats] = useState<{ [key: string]: { views: number, likes: number } }>(() => {
@@ -71,31 +160,52 @@ export default function App() {
   }, []);
 
   const allEpisodes = useMemo(() => {
-    const merged = [...EPISODES];
-    customEpisodes.forEach(customEp => {
-      const idx = merged.findIndex(e => e.id === customEp.id);
-      if (idx !== -1) {
-        merged[idx] = customEp;
-      } else {
-        merged.push(customEp);
-      }
-    });
-    return merged;
-  }, [customEpisodes]);
+    if (selectedProfile === 'Girlfriend') {
+      const merged = [...EPISODES];
+      customEpisodes.forEach(customEp => {
+        if (!customEp.profile || customEp.profile === 'Girlfriend') {
+          const idx = merged.findIndex(e => e.id === customEp.id);
+          if (idx !== -1) {
+            merged[idx] = customEp;
+          } else {
+            merged.push(customEp);
+          }
+        }
+      });
+      return merged;
+    } else if (selectedProfile === 'Boyfriend') {
+      // Boyfriend: starts fresh (empty). Only matching Boyfriend profile
+      return customEpisodes.filter(e => e.profile === 'Boyfriend');
+    } else {
+      // Us Together: starts fresh (blank slate) for media the user uploads
+      return customEpisodes.filter(e => e.profile === 'Us');
+    }
+  }, [customEpisodes, selectedProfile]);
 
   const combinedCategories = useMemo(() => {
-    const customCats: string[] = customEpisodes.map(ep => ep.category);
+    const activeCustom = selectedProfile === 'Girlfriend'
+      ? customEpisodes.filter(ep => !ep.profile || ep.profile === 'Girlfriend')
+      : selectedProfile === 'Boyfriend'
+        ? customEpisodes.filter(ep => ep.profile === 'Boyfriend')
+        : customEpisodes.filter(ep => ep.profile === 'Us');
+
+    const customCats: string[] = activeCustom.map(ep => ep.category);
     const uniqueCustomCats: string[] = Array.from(new Set<string>(customCats.filter(c => !(CATEGORIES as string[]).includes(c))));
     
+    if (selectedProfile === 'Boyfriend' || selectedProfile === 'Us') {
+      // For Boyfriend and Us, just give custom categories + future watchlist
+      return [...uniqueCustomCats, 'Our Watchlist (Future Seasons)'];
+    }
+
     const result: string[] = [...CATEGORIES];
-    const futureIndex = result.indexOf('Future Watchlist');
+    const futureIndex = result.indexOf('Our Watchlist (Future Seasons)');
     if (futureIndex !== -1) {
       result.splice(futureIndex, 0, ...uniqueCustomCats);
     } else {
       result.push(...uniqueCustomCats);
     }
     return result;
-  }, [customEpisodes]);
+  }, [customEpisodes, selectedProfile]);
 
   // Dynamic Search Filtering
   const filteredEpisodes = useMemo(() => {
@@ -187,7 +297,25 @@ export default function App() {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   }, []);
 
-  const handleProfileSelect = useCallback(() => {
+  const handleToggleSound = useCallback(async () => {
+    const newSoundEnabled = !studioSettings.backgroundSoundEnabled;
+    try {
+      await handleUpdateStudioSettings({
+        ...studioSettings,
+        backgroundSoundEnabled: newSoundEnabled
+      });
+      // Fire custom events so the media container reacts instantly on same machine
+      window.dispatchEvent(new CustomEvent('millifix-play-backdrop-audio', { 
+        detail: { play: newSoundEnabled, soundEnabled: newSoundEnabled } 
+      }));
+    } catch (err) {
+      console.error("Failed to toggle backdrop sound:", err);
+    }
+  }, [studioSettings, handleUpdateStudioSettings]);
+
+  const handleProfileSelect = useCallback((profile: 'Girlfriend' | 'Boyfriend') => {
+    setSelectedProfile(profile);
+    localStorage.setItem('millifix_profile', profile);
     setStage('trailer');
     setIsMusicPaused(true); // Pause music while trailer intro is waiting for play
   }, []);
@@ -274,10 +402,14 @@ export default function App() {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove('light-mode', 'mood-romantic', 'mood-playful', 'mood-nostalgic', 'mood-cinematic');
+    root.classList.remove('light-mode');
     if (theme === 'light') root.classList.add('light-mode');
-    root.classList.add(`mood-${mood}`);
-  }, [theme, mood]);
+    
+    // Dynamically apply selected colorTheme properties
+    const activeTheme = COLOR_THEMES.find(t => t.id === studioSettings.colorTheme) || COLOR_THEMES[0];
+    root.style.setProperty('--accent-main', activeTheme.hex);
+    root.style.setProperty('--accent-rgb', activeTheme.rgb);
+  }, [theme, studioSettings.colorTheme]);
 
   useEffect(() => {
     // Hidden keyboard trigger: Press 'H' for secret message
@@ -290,9 +422,30 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, []);
 
+  const getActiveBackdropUrls = () => {
+    const urls = selectedProfile === 'Boyfriend'
+      ? studioSettings.boyfriendBannerVideos
+      : studioSettings.girlfriendBannerVideos;
+    if (urls && urls.length > 0) return urls;
+    if (studioSettings.bannerVideos && studioSettings.bannerVideos.length > 0) return studioSettings.bannerVideos;
+    return [];
+  };
+  const activeBackdrops = getActiveBackdropUrls();
+  const hasBg = activeBackdrops.length > 0;
+
   return (
-    <div className="min-h-screen font-sans selection:bg-accent selection:text-white bg-bg-deep">
+    <div 
+      id="app-root-container"
+      data-has-bg={stage === 'home' && hasBg ? "true" : "false"}
+      className="min-h-screen font-sans selection:bg-accent selection:text-white bg-bg-deep overflow-x-hidden"
+    >
       <div className="atmosphere" />
+      {stage === 'home' && (
+        <AppBackground 
+          backdropUrls={activeBackdrops} 
+          soundEnabled={studioSettings.backgroundSoundEnabled}
+        />
+      )}
       <AnimatePresence mode="wait">
         {stage === 'profile-selection' && (
           <motion.div
@@ -302,7 +455,12 @@ export default function App() {
             exit={{ opacity: 0, scale: 1.1 }}
             transition={{ duration: 0.8 }}
           >
-            <ProfileSelector onSelect={handleProfileSelect} />
+            <ProfileSelector 
+              onSelect={handleProfileSelect} 
+              boyfriendImage={studioSettings.boyfriendProfileImage}
+              girlfriendImage={studioSettings.girlfriendProfileImage}
+              usImage={studioSettings.usProfileImage}
+            />
           </motion.div>
         )}
 
@@ -314,7 +472,7 @@ export default function App() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <TrailerPlayer onComplete={handleTrailerComplete} />
+            <TrailerPlayer onComplete={handleTrailerComplete} videoUrl={studioSettings.trailerVideoUrl} />
           </motion.div>
         )}
 
@@ -325,12 +483,90 @@ export default function App() {
             animate={{ opacity: 1 }}
             className="relative"
           >
-            <Navbar theme={theme} toggleTheme={toggleTheme} mood={mood} setMood={setMood} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onOpenAdmin={() => setIsAdminOpen(true)} />
+            <Navbar 
+              theme={theme} 
+              toggleTheme={toggleTheme} 
+              searchQuery={searchQuery} 
+              setSearchQuery={setSearchQuery} 
+              onOpenAdmin={() => setIsAdminOpen(true)} 
+              selectedProfile={selectedProfile}
+              onProfileSwitch={(profile) => {
+                setSelectedProfile(profile);
+                localStorage.setItem('millifix_profile', profile);
+              }}
+              girlfriendImage={studioSettings.girlfriendProfileImage}
+              boyfriendImage={studioSettings.boyfriendProfileImage}
+              usImage={studioSettings.usProfileImage}
+              soundEnabled={studioSettings.backgroundSoundEnabled}
+              onToggleSound={handleToggleSound}
+            />
             
             <main>
-              <HeroBanner onPlayAll={handlePlayAll} />
+              <HeroBanner 
+                onPlayAll={handlePlayAll} 
+                profile={selectedProfile} 
+                soundEnabled={studioSettings.backgroundSoundEnabled}
+                bannerVideos={
+                  selectedProfile === 'Boyfriend'
+                    ? (studioSettings.boyfriendBannerVideos && studioSettings.boyfriendBannerVideos.length > 0
+                        ? studioSettings.boyfriendBannerVideos
+                        : studioSettings.bannerVideos)
+                    : selectedProfile === 'Us'
+                      ? (studioSettings.usBannerVideos && studioSettings.usBannerVideos.length > 0
+                          ? studioSettings.usBannerVideos
+                          : studioSettings.bannerVideos)
+                      : (studioSettings.girlfriendBannerVideos && studioSettings.girlfriendBannerVideos.length > 0
+                          ? studioSettings.girlfriendBannerVideos
+                          : studioSettings.bannerVideos)
+                }
+              />
               
               <div className="relative -mt-32 md:-mt-48 z-20 pb-20">
+                {/* Custom Profile empty state hint for Boyfriend */}
+                {selectedProfile === 'Boyfriend' && allEpisodes.length === 0 && (
+                  <div className="max-w-2xl mx-auto px-6 py-12 mb-12 rounded-2xl bg-zinc-950/70 border border-violet-500/15 text-center space-y-5 shadow-2xl animate-fadeIn">
+                    <div className="w-14 h-14 bg-violet-500/10 rounded-full flex items-center justify-center mx-auto text-violet-400 border border-violet-500/20 shadow-inner text-2xl">
+                      🎬
+                    </div>
+                    <div className="space-y-1.5">
+                      <h3 className="text-xl font-black text-white uppercase tracking-wider">Welcome To Sbu's Cinematic Space</h3>
+                      <p className="text-xs text-text-dim max-w-md mx-auto leading-relaxed">
+                        This workspace starts completely fresh so you can upload your custom photo reels, video clips and captioned slideshows without affecting the Girlfriend timeline settings. Get started by clicking the button below!
+                      </p>
+                    </div>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setIsAdminOpen(true)}
+                      className="px-6 py-3 rounded-lg bg-violet-600 text-white text-xs font-black uppercase tracking-widest hover:bg-violet-500 transition-all shadow-lg shadow-violet-500/25 cursor-pointer"
+                    >
+                      Open Media Production Studio
+                    </motion.button>
+                  </div>
+                )}
+
+                {/* Custom Profile empty state hint for Us */}
+                {selectedProfile === 'Us' && allEpisodes.length === 0 && (
+                  <div className="max-w-2xl mx-auto px-6 py-12 mb-12 rounded-2xl bg-zinc-950/70 border border-pink-500/15 text-center space-y-5 shadow-2xl animate-fadeIn">
+                    <div className="w-14 h-14 bg-pink-500/10 rounded-full flex items-center justify-center mx-auto text-pink-400 border border-pink-500/20 shadow-inner text-2xl animate-pulse">
+                      🤍
+                    </div>
+                    <div className="space-y-1.5">
+                      <h3 className="text-xl font-black text-white uppercase tracking-wider">Welcome To Our Shared Album Space</h3>
+                      <p className="text-xs text-text-dim max-w-md mx-auto leading-relaxed">
+                        This space is for Us together! It starts completely blank so you can upload your favorite photos and videos of Milli and Sbu side-by-side. Get started by clicking the button below!
+                      </p>
+                    </div>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setIsAdminOpen(true)}
+                      className="px-6 py-3 rounded-lg bg-pink-600 text-white text-xs font-black uppercase tracking-widest hover:bg-pink-500 transition-all shadow-lg shadow-pink-500/25 cursor-pointer"
+                    >
+                      Open Media Production Studio
+                    </motion.button>
+                  </div>
+                )}
                 {/* Dynamic Search Results Section */}
                 {searchQuery.trim() !== '' && (
                   <div className="border border-accent/20 bg-accent/5 backdrop-blur-md rounded-lg mx-6 md:mx-12 p-2 mb-8 animate-fadeIn">
@@ -345,7 +581,7 @@ export default function App() {
 
                 {combinedCategories.map((category) => {
                   const categoryId = category.toLowerCase().replace(/[^a-z0-9]/g, '-');
-                  if (category === 'Global Top 10 in MilliFix') {
+                  if (category === 'Global Top 10 in MilliSbu') {
                     return (
                       <Top10Row 
                         key={category} 
@@ -417,6 +653,12 @@ export default function App() {
 
               <LoveNotesBoard />
 
+              <LiveLocationTracker 
+                boyfriendImage={studioSettings.boyfriendProfileImage}
+                girlfriendImage={studioSettings.girlfriendProfileImage}
+                currentUserProfile={selectedProfile}
+              />
+
               <SoundtrackVinylPlayer />
 
               <CreditsSection />
@@ -432,10 +674,11 @@ export default function App() {
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setStage('countdown')}
                     className="bg-card-bg/50 text-text-main px-8 py-2.5 rounded-sm font-bold text-xs uppercase tracking-widest hover:bg-card-bg transition-colors border border-border-subtle"
+                    id="important-dates-btn"
                   >
-                    Season 2 coming soon...
+                    Important Dates
                   </motion.button>
-                  <p className="text-text-dim text-[10px] font-bold tracking-tighter">© 2026 MILLIFIX ORIGINALS. ALL RIGHTS RESERVED.</p>
+                  <p className="text-text-dim text-[10px] font-bold tracking-tighter">© 2026 MILLISBU ORIGINALS. ALL RIGHTS RESERVED.</p>
                 </div>
               </footer>
             </main>
@@ -472,7 +715,7 @@ export default function App() {
                     className="relative bg-bg-deep border border-white/10 p-12 rounded-lg shadow-2xl max-w-xl w-full text-center space-y-8"
                   >
                     <div className="space-y-2">
-                       <span className="text-accent font-black uppercase tracking-[0.4em] text-[10px]">Millifix Originals</span>
+                       <span className="text-accent font-black uppercase tracking-[0.4em] text-[10px]">MilliSbu Originals</span>
                        <h2 className="text-3xl md:text-5xl font-black text-white tracking-tighter">{showTbaEpisode.title}</h2>
                        <p className="text-text-dim text-xs font-bold uppercase tracking-widest italic">{showTbaEpisode.description}</p>
                     </div>
@@ -510,10 +753,10 @@ export default function App() {
               )}
             </AnimatePresence>
 
-            <BackgroundMusic isVisible={stage === 'home'} isPaused={isMusicPaused || isQuizOpen} mood={mood} />
+            <BackgroundMusic isVisible={stage === 'home'} />
             <Notification />
-            <CountdownBox />
-            <LoveLetter isVisible={stage === 'home'} />
+            <CountdownBox onTriggerCelebration={(title, body, name) => setCelebrationEvent({ title, body, name })} />
+            <LoveLetter isVisible={stage === 'home'} profile={selectedProfile} />
 
             {/* Admin Media Dashboard Settings Overlay */}
             <AnimatePresence>
@@ -522,10 +765,13 @@ export default function App() {
                   isOpen={isAdminOpen} 
                   onClose={() => setIsAdminOpen(false)} 
                   allEpisodes={allEpisodes}
+                  selectedProfile={selectedProfile}
                   onSuccess={(msg) => {
                     setAdminSuccessMessage(msg);
                     setTimeout(() => setAdminSuccessMessage(null), 5000);
                   }}
+                  studioSettings={studioSettings}
+                  onUpdateStudioSettings={handleUpdateStudioSettings}
                 />
               )}
             </AnimatePresence>
@@ -560,10 +806,21 @@ export default function App() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <CountdownPage onBack={() => setStage('home')} />
+            <CountdownPage 
+              onBack={() => setStage('home')} 
+              onTriggerCelebration={(title, body, name) => setCelebrationEvent({ title, body, name })}
+            />
           </motion.div>
         )}
       </AnimatePresence>
+
+      <CelebrationPortal
+        isOpen={!!celebrationEvent}
+        onClose={() => setCelebrationEvent(null)}
+        title={celebrationEvent?.title || ''}
+        body={celebrationEvent?.body || ''}
+        eventName={celebrationEvent?.name || ''}
+      />
 
       {/* Persistence / Global Styles */}
       <style>{`
@@ -590,15 +847,15 @@ export default function App() {
           padding-bottom: 4rem;
           border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
-        #global-top-10-in-millifix {
+        #global-top-10-in-millisbu {
           padding-top: 4rem;
           padding-bottom: 4rem;
           margin-top: 2rem;
           margin-bottom: 2rem;
-          background: linear-gradient(90deg, rgba(var(--color-accent-rgb), 0.08) 0%, transparent 50%, rgba(var(--color-accent-rgb), 0.08) 100%);
+          background: linear-gradient(90deg, rgba(255, 45, 85, 0.08) 0%, transparent 50%, rgba(255, 45, 85, 0.08) 100%);
           position: relative;
         }
-        #global-top-10-in-millifix::before {
+        #global-top-10-in-millisbu::before {
           content: '';
           position: absolute;
           top: 0;

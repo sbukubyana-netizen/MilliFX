@@ -77,7 +77,7 @@ export default function InteractiveQuiz({ onClose }: QuizProps) {
               <div className="space-y-2">
                 <span className="text-accent font-bold uppercase tracking-[0.2em] text-[10px]">Interactive Special</span>
                 <h3 className="text-2xl font-bold text-text-main">
-                  The MilliFix Review: Part 1
+                  The MilliSbu Review: Part 1
                 </h3>
               </div>
 

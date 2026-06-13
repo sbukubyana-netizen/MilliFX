@@ -4,8 +4,6 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Music } from 'luc
 
 interface BackgroundMusicProps {
   isVisible: boolean;
-  isPaused: boolean;
-  mood: string;
 }
 
 const PLAYLIST = [
@@ -96,7 +94,7 @@ export default function BackgroundMusic({ isVisible }: BackgroundMusicProps) {
           )}
         </div>
         <span className="text-[8px] font-bold text-text-dim uppercase tracking-tighter opacity-70">
-          {isPlaying ? 'MilliFix Radio • Live' : 'Paused'}
+          {isPlaying ? 'MilliSbu Radio • Live' : 'Paused'}
         </span>
       </div>
 

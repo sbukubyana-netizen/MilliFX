@@ -22,6 +22,25 @@
   --accent-main: #ff2d55;
 }
 
+/* Dynamic background custom overrides */
+[data-has-bg="true"] {
+  --bg-deep: rgba(5, 5, 5, 0.0) !important;
+  --card-bg: rgba(10, 10, 12, 0.45) !important;
+  --border-subtle: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-has-bg="true"] .atmosphere {
+  opacity: 0.1 !important;
+}
+
+[data-has-bg="true"] #love-notes-board,
+[data-has-bg="true"] #soundtrack-vinyl-player,
+[data-has-bg="true"] #live-location-sharing {
+  background-color: transparent !important;
+  backdrop-filter: blur(4px);
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+
 .light-mode {
   --bg-deep: #f5f5f7;
   --card-bg: #ffffff;
@@ -30,10 +49,13 @@
   --border-subtle: rgba(0, 0, 0, 0.05);
 }
 
-.mood-romantic { --accent-main: #ff2d55; --accent-rgb: 255, 45, 85; }
-.mood-playful { --accent-main: #ff8c00; --accent-rgb: 255, 140, 0; }
-.mood-nostalgic { --accent-main: #d4af37; --accent-rgb: 212, 175, 55; }
-.mood-cinematic { --accent-main: #7c3aed; --accent-rgb: 124, 58, 237; }
+[data-has-bg="true"].light-mode {
+  --bg-deep: rgba(245, 245, 247, 0.0) !important;
+  --card-bg: rgba(255, 255, 255, 0.45) !important;
+  --border-subtle: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Accent mapping will be dynamically assigned via document.documentElement variables */
 
 @layer base {
   body {

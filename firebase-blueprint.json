@@ -7,12 +7,14 @@
       "properties": {
         "id": { "type": "string" },
         "text": { "type": "string" },
-        "sender": { "type": "string", "enum": ["Milli 🤍", "Fix 🤍", "Us 🤍"] },
+        "audioUrl": { "type": "string" },
+        "audioDuration": { "type": "number" },
+        "sender": { "type": "string", "enum": ["Milli 🤍", "Fix 🤍", "Us 🤍", "Sbu 🤍"] },
         "color": { "type": "string" },
         "createdAt": { "type": "string" },
         "tilt": { "type": "number" }
       },
-      "required": ["id", "text", "sender", "color", "createdAt", "tilt"]
+      "required": ["id", "sender", "color", "createdAt", "tilt"]
     },
     "song_dedication": {
       "title": "Song Dedication",
@@ -55,6 +57,60 @@
         }
       },
       "required": ["id", "title", "description", "category", "previewImageUrl", "images"]
+    },
+    "live_location": {
+      "title": "Live Location",
+      "description": "Real-time location coordinates and sharing status for Milli and Fix",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "isSharing": { "type": "boolean" },
+        "updatedAt": { "type": "string" },
+        "batteryLevel": { "type": "number" },
+        "statusMessage": { "type": "string" }
+      },
+      "required": ["id", "name", "lat", "lng", "isSharing", "updatedAt"]
+    },
+    "daily_note": {
+      "title": "Daily Note",
+      "description": "Custom daily thought created by Millennium or Fix to sync on active panels",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "subject": { "type": "string" },
+        "body": { "type": "string" },
+        "period": { "type": "string", "enum": ["morning", "afternoon", "evening", "night"] },
+        "profile": { "type": "string", "enum": ["Girlfriend", "Boyfriend"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "subject", "body", "period", "profile", "createdAt"]
+    },
+    "studio_setting": {
+      "title": "Studio Setting",
+      "description": "Custom global settings for trailer, profiles, and banners",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "trailerVideoUrl": { "type": "string" },
+        "boyfriendProfileImage": { "type": "string" },
+        "girlfriendProfileImage": { "type": "string" },
+        "bannerVideos": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "boyfriendBannerVideos": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "girlfriendBannerVideos": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["id", "trailerVideoUrl", "boyfriendProfileImage", "girlfriendProfileImage", "bannerVideos", "boyfriendBannerVideos", "girlfriendBannerVideos"]
     }
   },
   "firestore": {
@@ -69,6 +125,18 @@
     "custom_episodes": {
       "schema": "custom_episode",
       "description": "Collection of user-added episodes containing pictures/videos and custom captions"
+    },
+    "daily_notes": {
+      "schema": "daily_note",
+      "description": "Collection of sweet custom periodically matched notes written by lovers"
+    },
+    "live_locations": {
+      "schema": "live_location",
+      "description": "Real-time active location updates synced between Milli and Fix"
+    },
+    "studio_settings": {
+      "schema": "studio_setting",
+      "description": "Customizable studio configurations for trailer videos, profile cards, and banners"
     }
   }
 }

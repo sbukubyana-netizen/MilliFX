@@ -16,14 +16,14 @@ const Top10Row: React.FC<Top10RowProps> = ({ id, items, userStats, onLike, onSel
     <div className="py-12 space-y-3" id={id}>
       <div className="px-6 md:px-12 flex items-center justify-between">
         <div className="flex flex-col pb-0">
-          <h3 className="text-xl md:text-3xl font-black text-text-main flex items-center gap-2 italic tracking-tighter mb-0 pb-0">
+          <h3 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-black text-text-main flex items-center gap-2 italic tracking-tighter mb-0 pb-0">
             Global Top 10 <span className="text-accent not-italic">🔥</span>
           </h3>
-          <p className="text-text-dim text-[10px] font-bold uppercase tracking-widest mt-0.5">Based on your recent binge-watching & likes</p>
+          <p className="text-text-dim text-[9px] sm:text-[10px] font-bold uppercase tracking-widest mt-0.5">Based on your recent binge-watching & likes</p>
         </div>
         <button 
           onClick={() => onSelect(items[0], items)}
-          className="text-accent text-[10px] font-black uppercase tracking-widest hover:underline"
+          className="text-accent text-[9px] sm:text-[10px] font-black uppercase tracking-widest hover:underline"
         >
           Play the Hits &#8250;
         </button>
@@ -38,10 +38,10 @@ const Top10Row: React.FC<Top10RowProps> = ({ id, items, userStats, onLike, onSel
               key={item.id}
               whileHover={{ scale: 1.05, zIndex: 50 }}
               transition={{ duration: 0.3 }}
-              className="flex-shrink-0 relative w-64 md:w-80 group cursor-pointer"
+              className="flex-shrink-0 relative w-[220px] sm:w-[280px] md:w-[320px] max-w-full group cursor-pointer"
             >
               {/* Massive Number */}
-              <div className="absolute -left-6 md:-left-12 bottom-0 text-[80px] md:text-[200px] font-black leading-none text-bg-deep select-none outline-text transition-all group-hover:text-accent/20 z-0 drop-shadow-[0_0_20px_rgba(0,0,0,0.5)]">
+              <div className="absolute -left-6 sm:-left-8 md:-left-12 bottom-0 text-[100px] sm:text-[140px] md:text-[200px] font-black leading-none text-bg-deep select-none outline-text transition-all group-hover:text-accent/20 z-0 drop-shadow-[0_0_20px_rgba(0,0,0,0.5)]">
                 {index + 1}
               </div>
               

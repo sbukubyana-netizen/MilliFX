@@ -4,9 +4,10 @@ import { Play, Volume2, VolumeX, SkipForward } from 'lucide-react';
 
 interface TrailerPlayerProps {
   onComplete: () => void;
+  videoUrl?: string;
 }
 
-export default function TrailerPlayer({ onComplete }: TrailerPlayerProps) {
+export default function TrailerPlayer({ onComplete, videoUrl }: TrailerPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -34,17 +35,19 @@ export default function TrailerPlayer({ onComplete }: TrailerPlayerProps) {
     onComplete();
   };
 
+  const activeVideoUrl = videoUrl || "/videos/8.mp4";
+
   return (
     <div className="relative h-screen w-screen bg-black flex items-center justify-center overflow-hidden">
       <video
         ref={videoRef}
+        src={activeVideoUrl}
         className="absolute inset-0 w-full h-full object-contain"
         onEnded={onComplete}
         onError={() => setVideoError(true)}
         muted={isMuted}
         playsInline
       >
-        <source src="/videos/8.mp4" type="video/mp4" />
         Your browser does not support the video tag.
       </video>
 
@@ -53,12 +56,12 @@ export default function TrailerPlayer({ onComplete }: TrailerPlayerProps) {
           <div className="max-w-md space-y-4">
             <p className="text-white text-lg font-bold">Unable to load the trailer video.</p>
             <p className="text-white/60 text-sm italic">"The element has no supported sources."</p>
-            <p className="text-white/40 text-xs">Please ensure that the file exists at <code className="bg-white/10 px-1 py-0.5 rounded">public/videos/8.mp4</code></p>
+            <p className="text-white/30 text-xs">Ensure correct video URL in Studio customizations, or that default video exists at <code className="bg-white/10 px-1 py-0.5 rounded">public/videos/8.mp4</code></p>
             <button 
               onClick={onComplete}
               className="bg-accent text-white px-8 py-2 rounded-sm font-bold uppercase tracking-widest text-[10px]"
             >
-              Enter MilliFix Directly
+              Enter MilliSbu Directly
             </button>
           </div>
         </div>
