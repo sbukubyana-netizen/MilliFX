@@ -87,28 +87,84 @@ export default function AdminMediaSettings({
   }, [studioSettings]);
 
   const handleConfigLocalUpload = (file: File, target: 'trailer' | 'boyfriend' | 'girlfriend' | 'us' | 'banner' | 'boyfriend_banner' | 'girlfriend_banner' | 'us_banner') => {
+    // If it's a video file or trailer, prevent huge video payloads which would crash the Firestore save (max 1MB per document)
+    if (file.type.startsWith('video/') || target === 'trailer') {
+      if (file.size > 921600) { // 900 KB
+        alert(`This video clip is too large (${(file.size / (1024 * 1024)).toFixed(2)}MB). Because Firestore is optimized for light metadata and has a 1MB total document constraint, please upload/provide a video smaller than 900KB, or paste a standard web URL instead!`);
+        return;
+      }
+    }
+
+    // For images, we automatically resize and compress them client-side using HTML5 canvas.
+    // This reduces multi-megabyte smart camera photographs to highly optimized 30KB web images!
+    if (file.type.startsWith('image/')) {
+      const imgReader = new FileReader();
+      imgReader.readAsDataURL(file);
+      imgReader.onload = (e) => {
+        const src = e.target?.result as string;
+        const img = new Image();
+        img.src = src;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 600; // max width/height
+
+          if (width > height) {
+            if (width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            }
+          } else {
+            if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.65);
+            applyConfigValue(compressedBase64, target);
+          } else {
+            // fallback if canvas context fails
+            applyConfigValue(src, target);
+          }
+        };
+      };
+      return;
+    }
+
+    // Standard fallback (non-image files, e.g., video under 900KB)
     const reader = new FileReader();
     reader.onload = (event) => {
       const base64 = event.target?.result as string;
-      if (target === 'trailer') {
-        setTrailerVideoUrl(base64);
-      } else if (target === 'boyfriend') {
-        setBoyfriendProfileImage(base64);
-      } else if (target === 'girlfriend') {
-        setGirlfriendProfileImage(base64);
-      } else if (target === 'us') {
-        setUsProfileImage(base64);
-      } else if (target === 'banner') {
-        setBannerUrlsText(prev => prev ? `${prev}, ${base64}` : base64);
-      } else if (target === 'boyfriend_banner') {
-        setBoyfriendBannerUrlsText(prev => prev ? `${prev}, ${base64}` : base64);
-      } else if (target === 'girlfriend_banner') {
-        setGirlfriendBannerUrlsText(prev => prev ? `${prev}, ${base64}` : base64);
-      } else if (target === 'us_banner') {
-        setUsBannerUrlsText(prev => prev ? `${prev}, ${base64}` : base64);
-      }
+      applyConfigValue(base64, target);
     };
     reader.readAsDataURL(file);
+  };
+
+  const applyConfigValue = (base64: string, target: 'trailer' | 'boyfriend' | 'girlfriend' | 'us' | 'banner' | 'boyfriend_banner' | 'girlfriend_banner' | 'us_banner') => {
+    if (target === 'trailer') {
+      setTrailerVideoUrl(base64);
+    } else if (target === 'boyfriend') {
+      setBoyfriendProfileImage(base64);
+    } else if (target === 'girlfriend') {
+      setGirlfriendProfileImage(base64);
+    } else if (target === 'us') {
+      setUsProfileImage(base64);
+    } else if (target === 'banner') {
+      setBannerUrlsText(prev => prev ? `${prev}, ${base64}` : base64);
+    } else if (target === 'boyfriend_banner') {
+      setBoyfriendBannerUrlsText(prev => prev ? `${prev}, ${base64}` : base64);
+    } else if (target === 'girlfriend_banner') {
+      setGirlfriendBannerUrlsText(prev => prev ? `${prev}, ${base64}` : base64);
+    } else if (target === 'us_banner') {
+      setUsBannerUrlsText(prev => prev ? `${prev}, ${base64}` : base64);
+    }
   };
 
   const handleSaveStudioConfig = async (e: React.FormEvent) => {
@@ -258,37 +314,115 @@ export default function AdminMediaSettings({
 
     filesToLoad.forEach((file) => {
       const isVideo = file.type.startsWith('video/');
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        
-        // For video files, we need a preset thumbnail cover if none exists
-        const defaultThumbnail = isVideo 
-          ? PRESET_COVERS[0].url 
-          : base64;
-
-        const newMemory: Memory = {
-          id: `mom-custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          title: file.name.split('.')[0]?.substring(0, 30) || 'Cherished Memory',
-          imageUrl: defaultThumbnail,
-          videoUrl: isVideo ? base64 : undefined,
-          description: 'A quiet, precious moment preserved forever ✨'
-        };
-
-        if (isEditMode) {
-          setEditMemories(prev => [...prev, newMemory]);
-        } else {
-          setCreateMemories(prev => [...prev, newMemory]);
-          // Automatically use the first loaded picture/video preview as default episode cover if empty
-          setCreateMemories(currentList => {
-            if (currentList.length === 1 && !customCoverUrl) {
-              setCustomCoverUrl(defaultThumbnail);
-            }
-            return currentList;
-          });
+      
+      if (isVideo) {
+        if (file.size > 921600) { // 900 KB
+          alert(`The video file "${file.name}" is too large (${(file.size / (1024 * 1024)).toFixed(2)}MB). Firestore limits total document size to 1MB. Please compress your video file beneath 900KB, or upload a smaller clip!`);
+          return;
         }
-      };
-      reader.readAsDataURL(file);
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64 = event.target?.result as string;
+          const defaultThumbnail = PRESET_COVERS[0].url;
+
+          const newMemory: Memory = {
+            id: `mom-custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            title: file.name.split('.')[0]?.substring(0, 30) || 'Cherished Memory',
+            imageUrl: defaultThumbnail,
+            videoUrl: base64,
+            description: 'A quiet, precious moment preserved forever ✨'
+          };
+
+          if (isEditMode) {
+            setEditMemories(prev => [...prev, newMemory]);
+          } else {
+            setCreateMemories(prev => [...prev, newMemory]);
+            setCreateMemories(currentList => {
+              if (currentList.length === 1 && !customCoverUrl) {
+                setCustomCoverUrl(defaultThumbnail);
+              }
+              return currentList;
+            });
+          }
+        };
+        reader.readAsDataURL(file);
+      } else if (file.type.startsWith('image/')) {
+        // High-precision canvas resizing & 0.65 JPEG compression for pictures
+        const imgReader = new FileReader();
+        imgReader.readAsDataURL(file);
+        imgReader.onload = (e) => {
+          const src = e.target?.result as string;
+          const img = new Image();
+          img.src = src;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+            const maxDim = 600; // optimized high-resolution thumbnail
+
+            if (width > height) {
+              if (width > maxDim) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              }
+            } else {
+              if (height > maxDim) {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              const compressedBase64 = canvas.toDataURL('image/jpeg', 0.65);
+              
+              const newMemory: Memory = {
+                id: `mom-custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                title: file.name.split('.')[0]?.substring(0, 30) || 'Cherished Memory',
+                imageUrl: compressedBase64,
+                description: 'A quiet, precious moment preserved forever ✨'
+              };
+
+              if (isEditMode) {
+                setEditMemories(prev => [...prev, newMemory]);
+              } else {
+                setCreateMemories(prev => [...prev, newMemory]);
+                setCreateMemories(currentList => {
+                  if (currentList.length === 1 && !customCoverUrl) {
+                    setCustomCoverUrl(compressedBase64);
+                  }
+                  return currentList;
+                });
+              }
+            } else {
+              // fallback if canvas cannot get context
+              const newMemory: Memory = {
+                id: `mom-custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                title: file.name.split('.')[0]?.substring(0, 30) || 'Cherished Memory',
+                imageUrl: src,
+                description: 'A quiet, precious moment preserved forever ✨'
+              };
+              if (isEditMode) {
+                setEditMemories(prev => [...prev, newMemory]);
+              } else {
+                setCreateMemories(prev => [...prev, newMemory]);
+                setCreateMemories(currentList => {
+                  if (currentList.length === 1 && !customCoverUrl) {
+                    setCustomCoverUrl(src);
+                  }
+                  return currentList;
+                });
+              }
+            }
+          };
+        };
+      } else {
+        alert("Unsupported file type! Please upload standard image files (png/jpg/webp) or video files (mp4).");
+      }
     });
   };
 

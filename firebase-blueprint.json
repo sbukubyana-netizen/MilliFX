@@ -111,6 +111,34 @@
         }
       },
       "required": ["id", "trailerVideoUrl", "boyfriendProfileImage", "girlfriendProfileImage", "bannerVideos", "boyfriendBannerVideos", "girlfriendBannerVideos"]
+    },
+    "what_to_do_item": {
+      "title": "What To Do Together Item",
+      "description": "Interactive checklist item for couple tasks, future dates, and shared buckets",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["id", "text", "completed", "createdAt", "createdBy"]
+    },
+    "love_jar_note": {
+      "title": "Love Jar Note",
+      "description": "A custom love letter, secret, or affectionate note dropped into the digital Love Jar",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "sender": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "opened": { "type": "boolean" },
+        "openedAt": { "type": "string" },
+        "recipient": { "type": "string" }
+      },
+      "required": ["id", "text", "sender", "createdAt", "opened"]
     }
   },
   "firestore": {
@@ -137,6 +165,14 @@
     "studio_settings": {
       "schema": "studio_setting",
       "description": "Customizable studio configurations for trailer videos, profile cards, and banners"
+    },
+    "what_to_do_together": {
+      "schema": "what_to_do_item",
+      "description": "Interactive checklist tasks left by lovers of what they must do together"
+    },
+    "love_jar_notes": {
+      "schema": "love_jar_note",
+      "description": "Custom secret messages dropped inside the digital corked jar to shake and uncork once every 24 hours"
     }
   }
 }

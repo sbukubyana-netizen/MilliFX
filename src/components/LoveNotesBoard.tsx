@@ -214,13 +214,26 @@ export default function LoveNotesBoard() {
   const recorderRef = useRef<any | null>(null);
   const recordingTimerRef = useRef<any | null>(null);
 
-  // Firestore Real-time Sync
+  // Firestore Real-time Sync with Seeding Fallback
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'love_notes'), (snapshot) => {
       const fetchedNotes: StickyNote[] = [];
       snapshot.forEach((doc) => {
         fetchedNotes.push(doc.data() as StickyNote);
       });
+
+      // If the firestore collections are completely empty, pre-populate them
+      if (snapshot.empty) {
+        PRESET_NOTES.forEach(async (preset) => {
+          try {
+            await setDoc(doc(db, 'love_notes', preset.id), preset);
+          } catch (e) {
+            console.error('Failed to seed preset sticky notes database:', e);
+          }
+        });
+        setNotes(PRESET_NOTES);
+        return;
+      }
       
       // Sort notes so new ones are on top (Id-based or date-based fallback sorting)
       fetchedNotes.sort((a, b) => {
@@ -331,18 +344,21 @@ export default function LoveNotesBoard() {
     setIsRecording(false);
   };
 
-  // Handle uploaded files selectively
+  // Handle uploaded files selectively with highly robust extension checks
   const handleAudioUpload = async (file: File) => {
     setUploadError(null);
     
-    if (!file.type.startsWith('audio/')) {
-      setUploadError('Please choose or drop a valid audio music/voice file.');
+    const isAudioMime = file.type.startsWith('audio/');
+    const hasAudioExt = /\.(mp3|wav|m4a|ogg|aac|webm|mp4)$/i.test(file.name);
+
+    if (!isAudioMime && !hasAudioExt) {
+      setUploadError('Please choose or drop a valid audio music/voice file (MP3, WAV, M4A, etc.).');
       return;
     }
 
     // Direct proactive validation: protect Firestore limit (max 1MB per document, so limit binary base64 to 800KB)
     if (file.size > 800000) {
-      setUploadError('Audio file must be smaller than 800KB to fit on the Sticky Note!');
+      setUploadError(`Audio file is too large (${(file.size / 1024).toFixed(0)}KB). Because database sticky notes are limited to 1MB, please choose an audio file smaller than 800KB!`);
       return;
     }
 
@@ -384,12 +400,17 @@ export default function LoveNotesBoard() {
         updatedNote.audioDuration = tempAudioDuration || 0;
       }
 
+      // Optimistic local update so UI updates immediately
+      setNotes(prev => prev.map(n => n.id === editingId ? updatedNote : n));
+      // Close editor immediately to feel instantaneous
+      setEditingId(null);
+      setIsAdding(false);
+
       try {
         await setDoc(doc(db, 'love_notes', editingId), updatedNote);
       } catch (e) {
         handleFirestoreError(e, OperationType.WRITE, `love_notes/${editingId}`);
       }
-      setEditingId(null);
     } else {
       // Create a brand new note in Firestore
       const newId = `note-${Date.now()}`;
@@ -409,6 +430,11 @@ export default function LoveNotesBoard() {
         newNote.audioDuration = tempAudioDuration || 0;
       }
 
+      // Optimistic local update so UI updates immediately
+      setNotes(prev => [newNote, ...prev]);
+      // Close editor immediately to feel instantaneous
+      setIsAdding(false);
+
       try {
         await setDoc(doc(db, 'love_notes', newId), newNote);
       } catch (e) {
@@ -421,11 +447,14 @@ export default function LoveNotesBoard() {
     setTempAudioBase64(null);
     setTempAudioDuration(null);
     setUploadError(null);
-    setIsAdding(false);
   };
 
   const handleDeleteNote = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    // Optimistic local update
+    setNotes(prev => prev.filter(n => n.id !== id));
+
     try {
       await deleteDoc(doc(db, 'love_notes', id));
     } catch (e) {

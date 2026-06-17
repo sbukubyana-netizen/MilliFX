@@ -85,6 +85,18 @@ export default function LiveLocationTracker({
       if (docSnap.exists()) {
         const data = docSnap.data() as LiveLocation;
         setLocations(prev => ({ ...prev, milli: data }));
+      } else {
+        const initialMilli: LiveLocation = {
+          id: 'milli',
+          name: 'Milli 🤍',
+          lat: -26.2041,
+          lng: 28.0473,
+          isSharing: false,
+          updatedAt: 'Offline',
+          batteryLevel: 100,
+          statusMessage: 'Johannesburg, GP'
+        };
+        setDoc(doc(db, 'live_locations', 'milli'), initialMilli).catch(e => console.error(e));
       }
     }, (error) => {
       console.error('Error listening to Milli location:', error);
@@ -94,6 +106,18 @@ export default function LiveLocationTracker({
       if (docSnap.exists()) {
         const data = docSnap.data() as LiveLocation;
         setLocations(prev => ({ ...prev, sbu: data }));
+      } else {
+        const initialSbu: LiveLocation = {
+          id: 'sbu',
+          name: 'Sbu 🤍',
+          lat: -26.1952,
+          lng: 28.0340,
+          isSharing: false,
+          updatedAt: 'Offline',
+          batteryLevel: 100,
+          statusMessage: 'Johannesburg, GP'
+        };
+        setDoc(doc(db, 'live_locations', 'sbu'), initialSbu).catch(e => console.error(e));
       }
     }, (error) => {
       console.error('Error listening to Sbu location:', error);
@@ -104,6 +128,18 @@ export default function LiveLocationTracker({
       unsubSbu();
     };
   }, []);
+
+  const locationsRef = React.useRef(locations);
+  const currentUserRef = React.useRef(currentUser);
+
+  // Sync refs with the latest state values to prevent stale closures in async geocoding/callbacks
+  useEffect(() => {
+    locationsRef.current = locations;
+  }, [locations]);
+
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
 
   // Update battery level dynamically on load
   useEffect(() => {
@@ -135,7 +171,11 @@ export default function LiveLocationTracker({
       // Get initial position with speed
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          updatePosition(position.coords.latitude, position.coords.longitude);
+          // Double check ref to guarantee user is still sharing
+          const currentRecord = locationsRef.current[currentUserRef.current];
+          if (currentRecord?.isSharing) {
+            updatePosition(position.coords.latitude, position.coords.longitude);
+          }
           setIsLocLoading(false);
         },
         (error) => {
@@ -151,7 +191,10 @@ export default function LiveLocationTracker({
       // Watch position for continuous real-time movement updates
       const id = navigator.geolocation.watchPosition(
         (position) => {
-          updatePosition(position.coords.latitude, position.coords.longitude);
+          const currentRecord = locationsRef.current[currentUserRef.current];
+          if (currentRecord?.isSharing) {
+            updatePosition(position.coords.latitude, position.coords.longitude);
+          }
         },
         (error) => {
           console.warn("Watch position error:", error.message);
@@ -174,11 +217,54 @@ export default function LiveLocationTracker({
     };
   }, [currentUser, locations[currentUser].isSharing]);
 
+  // Fallback Interval: Force a high-precision geolocation query every 15 seconds to ensure continuous update streams when stationary (bypasses browser sleep/hibernation)
+  useEffect(() => {
+    let intervalId: any = null;
+    const activeUserRecord = locations[currentUser];
+
+    if (activeUserRecord.isSharing) {
+      const fetchPeriodicLocation = () => {
+        const currentRecord = locationsRef.current[currentUserRef.current];
+        if (!currentRecord?.isSharing || !navigator.geolocation) return;
+
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const checkSharingState = locationsRef.current[currentUserRef.current];
+            if (checkSharingState?.isSharing) {
+              updatePosition(position.coords.latitude, position.coords.longitude);
+            }
+          },
+          (err) => {
+            console.warn("Periodic GPS handshake deferred:", err.message);
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      };
+
+      // Poll every 15 seconds
+      intervalId = setInterval(fetchPeriodicLocation, 15000);
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [currentUser, locations[currentUser].isSharing]);
+
   const updatePosition = async (latitude: number, longitude: number) => {
-    const record = locations[currentUser];
-    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const freshUser = currentUserRef.current;
+    const record = locationsRef.current[freshUser];
     
+    // Safety abort: Do not write updates to Firestore if the user has clicked to stop sharing or turned sharing off!
+    if (!record || !record.isSharing) {
+      console.log("Coordinate upload skipped: location sharing is turned off.");
+      return;
+    }
+
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     let geocodedName = record.statusMessage || 'Active';
+    
     try {
       const resp = await fetch(
         `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=14`,
@@ -187,15 +273,21 @@ export default function LiveLocationTracker({
       if (resp.ok) {
         const d = await resp.json();
         const addr = d.address || {};
-        // Find most granular descriptor
         geocodedName = addr.suburb || addr.neighbourhood || addr.quarter || addr.village || addr.city_district || addr.city || addr.town || addr.municipality || 'Active';
       }
     } catch (e) {
       console.warn("Reverse-geocoding fetch deferred:", e);
     }
 
+    // Re-verify after potentially slow geocoding API response
+    const recordAfterFetch = locationsRef.current[freshUser];
+    if (!recordAfterFetch || !recordAfterFetch.isSharing) {
+      console.log("Geocoding complete, but user disabled sharing. Aborting Firestore write.");
+      return;
+    }
+
     const updated: LiveLocation = {
-      ...record,
+      ...recordAfterFetch,
       lat: Number(latitude.toFixed(6)),
       lng: Number(longitude.toFixed(6)),
       updatedAt: timestamp,
@@ -203,14 +295,17 @@ export default function LiveLocationTracker({
     };
 
     try {
-      await setDoc(doc(db, 'live_locations', currentUser), updated);
+      await setDoc(doc(db, 'live_locations', freshUser), updated);
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, `live_locations/${currentUser}`);
+      handleFirestoreError(err, OperationType.WRITE, `live_locations/${freshUser}`);
     }
   };
 
   const updateFirestoreLocationField = async (field: keyof LiveLocation, value: any) => {
-    const record = locations[currentUser];
+    const freshUser = currentUserRef.current;
+    const record = locationsRef.current[freshUser];
+    if (!record) return;
+
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const updated = {
       ...record,
@@ -218,14 +313,18 @@ export default function LiveLocationTracker({
       updatedAt: timestamp
     };
     try {
-      await setDoc(doc(db, 'live_locations', currentUser), updated);
+      await setDoc(doc(db, 'live_locations', freshUser), updated);
     } catch (err) {
       console.error(err);
     }
   };
 
   const toggleSharing = async () => {
-    const currentlySharing = locations[currentUser].isSharing;
+    const freshUser = currentUserRef.current;
+    const record = locationsRef.current[freshUser];
+    if (!record) return;
+
+    const currentlySharing = record.isSharing;
     const newSharingState = !currentlySharing;
     updateFirestoreLocationField('isSharing', newSharingState);
   };

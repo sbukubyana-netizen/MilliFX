@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Sparkles, Tv, MapPin, Calendar, Volume2, Flame, Heart } from 'lucide-react';
+import { X, Sparkles, Tv, MapPin, Calendar, Volume2, Flame, Heart, Film } from 'lucide-react';
 
 interface WhatsNewModalProps {
   isOpen: boolean;
@@ -17,34 +17,34 @@ interface UpdateItem {
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
   const updates: UpdateItem[] = [
     {
-      icon: <Calendar className="w-5 h-5 text-accent" />,
-      tag: "Milestones",
-      title: "Multiple Milestone Countdowns",
-      desc: "Track important dates separately: our Anniversary (Jan 18), Milli's Birthday (July 12), and Sbu's Birthday (Jan 26). Switch countdown targets instantly from the tracker panel!"
+      icon: <Tv className="w-5 h-5 text-accent" />,
+      tag: "Mini Player",
+      title: "Floatable Mini Player with Live Border Resize",
+      desc: "Switch the active video frame into a beautiful, picture-in-picture floatable modal. Drag it anywhere around the screen using its top/bottom handles, or resize its width/height dynamically by dragging on either of the side borders!"
     },
     {
-      icon: <Flame className="w-5 h-5 text-pink-500" />,
-      tag: "Celebration",
-      title: "Animated Celebration Portal",
-      desc: "Triggers a customized full-screen party with floating interactive emojis, warm loving declarations, and animated sparkles automatically on special dates—or click 'Celebrate' to trigger any time!"
+      icon: <Sparkles className="w-5 h-5 text-pink-500" />,
+      tag: "Design",
+      title: "Pristine Cinema Control Bar & Clean Layout",
+      desc: "Cleaned up cluttered themes and layout overrides. Now, the main theatre mode and control options are beautifully nested above the screen, keeping the movie backdrops entirely pristine, deep-focused, and premium."
     },
     {
-      icon: <Tv className="w-5 h-5 text-violet-400" />,
-      tag: "Cinematic",
-      title: "Auto-Sizing Theater Mode",
-      desc: "All backdrop videos, cinematic uploads, and photos now auto-size elegantly in fullscreen. Enabled custom blurred ambient backdrop replicas to mimic a premium theater screening experience."
+      icon: <Film className="w-5 h-5 text-violet-400" />,
+      tag: "Studio",
+      title: "Commas-Separated Multiple Media Backdrops",
+      desc: "Easily input multiple, customizable background loops (supporting video links, direct images, or YouTube URLs) as a simple comma-separated list! Includes multi-file drag-and-drop support and automatic smart client-side photo compression."
     },
     {
-      icon: <MapPin className="w-5 h-5 text-emerald-400" />,
-      tag: "Location",
-      title: "Live Location Status Labels",
-      desc: "Milli and Sbu now have beautiful, styled status/activity tags underneath their avatars (e.g. 'Coffee Shop Cafe ☕', 'Johannesburg') which update dynamically from the database."
+      icon: <Calendar className="w-5 h-5 text-emerald-400" />,
+      tag: "Timeline",
+      title: "Multiple Milestone Countdown Tracker",
+      desc: "Enables partners to monitor separate count timelines simultaneously: our official Anniversary (Jan 18), Sbu's Birthday (Jan 26), and Milli's Birthday (July 12). Switch active timelines instantly from the dashboard."
     },
     {
       icon: <Volume2 className="w-5 h-5 text-amber-400" />,
-      tag: "Audio",
-      title: "Autoplay Soundtrack Bypass",
-      desc: "High-fidelity background soundtrack player with integrated design-first volume controls to easily toggle ambient music on/off without interrupting the experience."
+      tag: "Atmosphere",
+      title: "Celebrations & Background Audio",
+      desc: "Trigger high-contrast emoji explosions, gorgeous declarations, and ambient video soundtracks with design-first sound toggles immediately synchronized across all your devices."
     }
   ];
 

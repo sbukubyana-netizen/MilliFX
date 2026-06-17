@@ -22,6 +22,8 @@ import CountdownBox from './components/CountdownBox';
 import CelebrationPortal from './components/CelebrationPortal';
 import LoveLetter from './components/LoveLetter';
 import LoveNotesBoard from './components/LoveNotesBoard';
+import WhatToDoTogether from './components/WhatToDoTogether';
+import LoveJar from './components/LoveJar';
 import SoundtrackVinylPlayer from './components/SoundtrackVinylPlayer';
 import AdminMediaSettings from './components/AdminMediaSettings';
 import LiveLocationTracker from './components/LiveLocationTracker';
@@ -293,10 +295,6 @@ export default function App() {
       .map(({ item }) => item);
   }, [userStats]);
 
-  const toggleTheme = useCallback(() => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-  }, []);
-
   const handleToggleSound = useCallback(async () => {
     const newSoundEnabled = !studioSettings.backgroundSoundEnabled;
     try {
@@ -485,7 +483,6 @@ export default function App() {
           >
             <Navbar 
               theme={theme} 
-              toggleTheme={toggleTheme} 
               searchQuery={searchQuery} 
               setSearchQuery={setSearchQuery} 
               onOpenAdmin={() => setIsAdminOpen(true)} 
@@ -521,7 +518,7 @@ export default function App() {
                 }
               />
               
-              <div className="relative -mt-32 md:-mt-48 z-20 pb-20">
+              <div className="relative mt-12 md:mt-16 z-20 pb-20">
                 {/* Custom Profile empty state hint for Boyfriend */}
                 {selectedProfile === 'Boyfriend' && allEpisodes.length === 0 && (
                   <div className="max-w-2xl mx-auto px-6 py-12 mb-12 rounded-2xl bg-zinc-950/70 border border-violet-500/15 text-center space-y-5 shadow-2xl animate-fadeIn">
@@ -650,6 +647,10 @@ export default function App() {
                   </div>
                 )}
               </div>
+
+              <LoveJar currentUserProfile={selectedProfile} />
+
+              <WhatToDoTogether currentUserProfile={selectedProfile} />
 
               <LoveNotesBoard />
 

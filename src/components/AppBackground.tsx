@@ -35,38 +35,7 @@ export default function AppBackground({ backdropUrls, soundEnabled = false }: Ap
     };
   }, []);
 
-  const isVideoMuted = !localSoundEnabled || isPlayingPlaylistMusic;
-
-  // Listen for any user gesture on the page to dynamic unmute/trigger audio playback bypass
-  useEffect(() => {
-    const handleFirstUserInteraction = () => {
-      if (!isVideoMuted && iframeRef.current?.contentWindow) {
-        try {
-          iframeRef.current.contentWindow.postMessage(
-            JSON.stringify({ event: 'command', func: 'unMute', args: [] }),
-            '*'
-          );
-          iframeRef.current.contentWindow.postMessage(
-            JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }),
-            '*'
-          );
-          iframeRef.current.contentWindow.postMessage(
-            JSON.stringify({ event: 'command', func: 'playVideo', args: [] }),
-            '*'
-          );
-        } catch (err) {
-          console.warn('Interaction unmute background attempt deferred', err);
-        }
-      }
-    };
-
-    window.addEventListener('click', handleFirstUserInteraction, { capture: true, passive: true });
-    window.addEventListener('touchstart', handleFirstUserInteraction, { capture: true, passive: true });
-    return () => {
-      window.removeEventListener('click', handleFirstUserInteraction, { capture: true });
-      window.removeEventListener('touchstart', handleFirstUserInteraction, { capture: true });
-    };
-  }, [isVideoMuted]);
+  const isVideoMuted = true;
 
   useEffect(() => {
     const handleAudioEvent = (e: Event) => {

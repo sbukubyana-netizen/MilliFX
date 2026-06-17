@@ -52,7 +52,7 @@ service cloud.firestore {
         && data.title is string && data.title.size() <= 200
         && data.description is string && data.description.size() <= 500
         && data.category is string && data.category.size() <= 200
-        && data.previewImageUrl is string && data.previewImageUrl.size() <= 2000
+        && data.previewImageUrl is string && data.previewImageUrl.size() <= 1200000
         && data.images is list;
     }
 
@@ -85,12 +85,39 @@ service cloud.firestore {
     function isValidStudioSetting(data) {
       return data.keys().hasAll(['id', 'trailerVideoUrl', 'boyfriendProfileImage', 'girlfriendProfileImage', 'bannerVideos', 'boyfriendBannerVideos', 'girlfriendBannerVideos'])
         && data.id is string && data.id.size() <= 100
-        && data.trailerVideoUrl is string && data.trailerVideoUrl.size() <= 2000
-        && data.boyfriendProfileImage is string && data.boyfriendProfileImage.size() <= 2000
-        && data.girlfriendProfileImage is string && data.girlfriendProfileImage.size() <= 2000
+        && data.trailerVideoUrl is string && data.trailerVideoUrl.size() <= 1200000
+        && data.boyfriendProfileImage is string && data.boyfriendProfileImage.size() <= 1200000
+        && data.girlfriendProfileImage is string && data.girlfriendProfileImage.size() <= 1200000
         && data.bannerVideos is list
         && data.boyfriendBannerVideos is list
-        && data.girlfriendBannerVideos is list;
+        && data.girlfriendBannerVideos is list
+        && (!data.keys().hasAny(['usProfileImage']) || (data.usProfileImage is string && data.usProfileImage.size() <= 1200000))
+        && (!data.keys().hasAny(['usBannerVideos']) || data.usBannerVideos is list)
+        && (!data.keys().hasAny(['backgroundSoundEnabled']) || data.backgroundSoundEnabled is bool)
+        && (!data.keys().hasAny(['colorTheme']) || (data.colorTheme is string && data.colorTheme.size() <= 100));
+    }
+
+    // Validation for What to do Together items
+    function isValidWhatToDo(data) {
+      return data.keys().hasAll(['id', 'text', 'completed', 'createdAt', 'createdBy'])
+        && data.keys().size() == 5
+        && data.id is string && data.id.size() <= 100
+        && data.text is string && data.text.size() <= 500
+        && data.completed is bool
+        && data.createdAt is string && data.createdAt.size() <= 100
+        && data.createdBy is string && data.createdBy.size() <= 100;
+    }
+
+    // Validation for Love Jar Note items
+    function isValidLoveJarNote(data) {
+      return data.keys().hasAll(['id', 'text', 'sender', 'createdAt', 'opened'])
+        && data.id is string && data.id.size() <= 100
+        && data.text is string && data.text.size() <= 1000
+        && data.sender is string && data.sender.size() <= 100
+        && data.createdAt is string && data.createdAt.size() <= 100
+        && data.opened is bool
+        && (!data.keys().hasAny(['openedAt']) || (data.openedAt is string && data.openedAt.size() <= 100))
+        && (!data.keys().hasAny(['recipient']) || (data.recipient is string && data.recipient.size() <= 100));
     }
 
     // Rules for love_notes collection
@@ -139,6 +166,22 @@ service cloud.firestore {
       allow create: if isValidId(configId) && isValidStudioSetting(incoming()) && incoming().id == configId;
       allow update: if isValidId(configId) && isValidStudioSetting(incoming()) && incoming().id == configId;
       allow delete: if isValidId(configId);
+    }
+
+    // Rules for what_to_do_together collection
+    match /what_to_do_together/{itemId} {
+      allow read: if true;
+      allow create: if isValidId(itemId) && isValidWhatToDo(incoming()) && incoming().id == itemId;
+      allow update: if isValidId(itemId) && isValidWhatToDo(incoming()) && incoming().id == itemId;
+      allow delete: if isValidId(itemId);
+    }
+
+    // Rules for love_jar_notes collection
+    match /love_jar_notes/{itemId} {
+      allow read: if true;
+      allow create: if isValidId(itemId) && isValidLoveJarNote(incoming()) && incoming().id == itemId;
+      allow update: if isValidId(itemId) && isValidLoveJarNote(incoming()) && incoming().id == itemId;
+      allow delete: if isValidId(itemId);
     }
   }
 }

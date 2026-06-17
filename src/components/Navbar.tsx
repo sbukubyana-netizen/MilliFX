@@ -7,7 +7,6 @@ import InstallPromptModal from './InstallPromptModal';
 
 interface NavbarProps {
   theme: 'dark' | 'light';
-  toggleTheme: () => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   onOpenAdmin: () => void;
@@ -22,7 +21,6 @@ interface NavbarProps {
 
 export default function Navbar({ 
   theme, 
-  toggleTheme, 
   searchQuery, 
   setSearchQuery, 
   onOpenAdmin, 
@@ -175,30 +173,6 @@ export default function Navbar({
       </div>
 
       <div className="hidden md:flex items-center gap-3 md:gap-6">
-        {/* Dynamic Video Sound/Autoplay Bypass Toggle */}
-        <button
-          onClick={onToggleSound}
-          type="button"
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border cursor-pointer transition-all text-[10.5px] font-black uppercase tracking-widest ${
-            soundEnabled
-              ? 'bg-accent/15 border-accent text-accent shadow-[0_0_12px_rgba(var(--accent-rgb),0.35)]'
-              : 'bg-zinc-950/40 border-white/5 text-zinc-400 hover:border-white/10 hover:text-zinc-200'
-          }`}
-          title={soundEnabled ? "Mute backdrop trailer" : "Unmute / Play backdrop trailer with design-first sound"}
-        >
-          {soundEnabled ? (
-            <>
-              <Volume2 className="w-3.5 h-3.5" />
-              <span>Sound On</span>
-            </>
-          ) : (
-            <>
-              <VolumeX className="w-3.5 h-3.5" />
-              <span>Sound Muted</span>
-            </>
-          )}
-        </button>
-
         {/* Studio Dashboard Settings Trigger */}
         <div 
           onClick={onOpenAdmin}
@@ -208,15 +182,6 @@ export default function Navbar({
           title="Studio Media Dashboard"
         >
           <Settings className="w-4 h-4 md:w-5 md:h-5 text-accent hover:scale-110 hover:rotate-45 transition-all duration-300" />
-        </div>
-
-        <div 
-          onClick={toggleTheme}
-          className={`p-2 rounded-full cursor-pointer transition-colors ${
-            theme === 'dark' ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-black/5 text-black hover:bg-black/10'
-          }`}
-        >
-          {theme === 'dark' ? <Sun className="w-4 h-4 md:w-5 md:h-5" /> : <Moon className="w-4 h-4 md:w-5 md:h-5" />}
         </div>
 
         {/* Search */}
@@ -482,19 +447,6 @@ export default function Navbar({
 
             {/* Quick Actions Bento-style adaptive grid */}
             <div className="grid grid-cols-2 xs:grid-cols-3 gap-2.5 w-full">
-              {/* Theme Selector */}
-              <button
-                onClick={toggleTheme}
-                className={`py-3 px-2 rounded-xl border flex flex-col items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer w-full h-auto min-h-[44px] ${
-                  theme === 'dark' 
-                    ? 'bg-white/5 border-white/5 text-white hover:bg-white/10' 
-                    : 'bg-black/5 border-black/5 text-black hover:bg-black/10'
-                }`}
-              >
-                {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-400" />}
-                <span>Theme</span>
-              </button>
-
               {/* Soundtrack sound toggle */}
               <button
                 onClick={onToggleSound}
