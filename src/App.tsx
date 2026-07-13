@@ -31,15 +31,15 @@ import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { PlayCircle } from 'lucide-react';
 
-// Helper functions for dynamic 1 to 100 URL sequence expansion support
+// Helper functions for dynamic 1 to 100 and 1 to 300 URL sequence expansion support
 function expandMediaUrls(urls: string[]): string[] {
-  if (!urls) return [];
+  if (!urls || !Array.isArray(urls)) return [];
   const result: string[] = [];
   const flattened: string[] = [];
   
   // Robustly split any elements that contain commas, semicolons, or newlines
   for (const url of urls) {
-    if (!url) continue;
+    if (!url || typeof url !== 'string') continue;
     const parts = url.split(/[,\n;]/).map(p => p.trim()).filter(p => p.length > 0);
     flattened.push(...parts);
   }
@@ -47,12 +47,13 @@ function expandMediaUrls(urls: string[]): string[] {
   for (const url of flattened) {
     const trimmed = url.trim();
     if (!trimmed) continue;
-    const match = trimmed.match(/^(.*?)(\w+?)100(\.[a-zA-Z0-9]+)?$/);
+    const match = trimmed.match(/^(.*?)(\w+?)(100|300)(\.[a-zA-Z0-9]+)?$/);
     if (match) {
       const prefixPath = match[1];
       const baseName = match[2];
-      const ext = match[3] || (baseName.toLowerCase().includes('video') || prefixPath.toLowerCase().includes('video') ? '.mp4' : '.jpg');
-      for (let i = 1; i <= 100; i++) {
+      const count = parseInt(match[3], 10);
+      const ext = match[4] || (baseName.toLowerCase().includes('video') || prefixPath.toLowerCase().includes('video') ? '.mp4' : '.jpg');
+      for (let i = 1; i <= count; i++) {
         result.push(`${prefixPath}${baseName}${i}${ext}`);
       }
     } else {
@@ -63,23 +64,26 @@ function expandMediaUrls(urls: string[]): string[] {
 }
 
 function expandEpisodeMemories(images: Memory[]): Memory[] {
-  if (!images) return [];
+  if (!images || !Array.isArray(images)) return [];
   const result: Memory[] = [];
   images.forEach(img => {
+    if (!img) return;
     const trimmedImgUrl = img.imageUrl?.trim() || '';
     const trimmedVideoUrl = img.videoUrl?.trim() || '';
     
-    const isImgMatch = trimmedImgUrl.match(/^(.*?)(\w+?)100(\.[a-zA-Z0-9]+)?$/);
-    const isVidMatch = trimmedVideoUrl.match(/^(.*?)(\w+?)100(\.[a-zA-Z0-9]+)?$/);
+    const isImgMatch = trimmedImgUrl.match(/^(.*?)(\w+?)(100|300)(\.[a-zA-Z0-9]+)?$/);
+    const isVidMatch = trimmedVideoUrl.match(/^(.*?)(\w+?)(100|300)(\.[a-zA-Z0-9]+)?$/);
     
     if (isImgMatch || isVidMatch) {
       const prefixPath = isImgMatch ? isImgMatch[1] : isVidMatch![1];
       const baseName = isImgMatch ? isImgMatch[2] : isVidMatch![2];
-      const extImg = isImgMatch ? (isImgMatch[3] || '.jpg') : '.jpg';
-      const extVid = isVidMatch ? (isVidMatch[3] || '.mp4') : '.mp4';
+      const matchRange = isImgMatch ? isImgMatch[3] : isVidMatch![3];
+      const maxCount = parseInt(matchRange, 10);
+      const extImg = isImgMatch ? (isImgMatch[4] || '.jpg') : '.jpg';
+      const extVid = isVidMatch ? (isVidMatch[4] || '.mp4') : '.mp4';
       
-      for (let i = 1; i <= 100; i++) {
-        const id = `${img.id}-range-${i}`;
+      for (let i = 1; i <= maxCount; i++) {
+        const id = `${img.id || 'slide'}-range-${i}`;
         const itemImgUrl = `${prefixPath}${baseName}${i}${extImg}`;
         const itemVideoUrl = isVidMatch ? `${prefixPath}${baseName}${i}${extVid}` : undefined;
         
@@ -88,7 +92,7 @@ function expandEpisodeMemories(images: Memory[]): Memory[] {
           title: `${img.title || 'Moments'} #${i}`,
           imageUrl: itemImgUrl,
           videoUrl: itemVideoUrl,
-          description: img.description ? `${img.description} (${i}/100)` : undefined
+          description: img.description ? `${img.description} (${i}/${maxCount})` : undefined
         });
       }
     } else {
@@ -223,13 +227,23 @@ export default function App() {
 
   // View & Like Tracking State
   const [userStats, setUserStats] = useState<{ [key: string]: { views: number, likes: number } }>(() => {
-    const saved = localStorage.getItem('millifix_stats');
-    return saved ? JSON.parse(saved) : {};
+    try {
+      const saved = localStorage.getItem('millifix_stats');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      console.error('Error parsing millifix_stats from localStorage:', e);
+      return {};
+    }
   });
 
   const [continueWatching, setContinueWatching] = useState<{ episodeId: string, index: number, timestamp: number }[]>(() => {
-    const saved = localStorage.getItem('millifix_continue');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('millifix_continue');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error('Error parsing millifix_continue from localStorage:', e);
+      return [];
+    }
   });
 
   // Subscribe to real-time custom episodes in Firestore

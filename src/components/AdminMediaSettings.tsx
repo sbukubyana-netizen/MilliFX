@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Plus, Trash2, Video, Image as ImageIcon, Settings, Sparkles, Check, HelpCircle, Upload, Film, Edit, RefreshCw, User, Play, Pause } from 'lucide-react';
 import { collection, setDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db, handleFirestoreError, OperationType, sanitizeFirestoreData } from '../firebase';
 import { Episode, Memory, CATEGORIES } from '../constants';
 
 interface AdminMediaSettingsProps {
@@ -697,7 +697,7 @@ export default function AdminMediaSettings({
     };
 
     try {
-      await setDoc(doc(db, 'custom_episodes', newId), newEpisode);
+      await setDoc(doc(db, 'custom_episodes', newId), sanitizeFirestoreData(newEpisode));
       
       // Record Undo Action
       setHistoryStack(prev => [...prev, { type: 'create', episode: newEpisode }]);
@@ -747,7 +747,7 @@ export default function AdminMediaSettings({
     const oldEpisode = allEpisodes.find(ep => ep.id === selectedEpisodeId);
 
     try {
-      await setDoc(doc(db, 'custom_episodes', selectedEpisodeId), updatedEpisode);
+      await setDoc(doc(db, 'custom_episodes', selectedEpisodeId), sanitizeFirestoreData(updatedEpisode));
       
       // Record Undo Action
       if (oldEpisode) {
@@ -788,10 +788,10 @@ export default function AdminMediaSettings({
     setIsSaving(true);
     try {
       if (lastAction.type === 'delete') {
-        await setDoc(doc(db, 'custom_episodes', lastAction.episode.id), lastAction.episode);
+        await setDoc(doc(db, 'custom_episodes', lastAction.episode.id), sanitizeFirestoreData(lastAction.episode));
         onSuccess(`Undone: Restored custom card "${lastAction.episode.title}"!`);
       } else if (lastAction.type === 'update') {
-        await setDoc(doc(db, 'custom_episodes', lastAction.prevEpisode.id), lastAction.prevEpisode);
+        await setDoc(doc(db, 'custom_episodes', lastAction.prevEpisode.id), sanitizeFirestoreData(lastAction.prevEpisode));
         onSuccess(`Undone: Restored previous version of "${lastAction.prevEpisode.title}"!`);
       } else if (lastAction.type === 'create') {
         await deleteDoc(doc(db, 'custom_episodes', lastAction.episode.id));
@@ -800,7 +800,7 @@ export default function AdminMediaSettings({
         await deleteDoc(doc(db, 'daily_notes', lastAction.note.id));
         onSuccess(`Undone: Removed custom daily thought "${lastAction.note.subject}"!`);
       } else if (lastAction.type === 'delete_note') {
-        await setDoc(doc(db, 'daily_notes', lastAction.note.id), lastAction.note);
+        await setDoc(doc(db, 'daily_notes', lastAction.note.id), sanitizeFirestoreData(lastAction.note));
         onSuccess(`Undone: Restored deleted daily thought "${lastAction.note.subject}"!`);
       }
       setHistoryStack(prev => prev.slice(0, -1));
@@ -832,7 +832,7 @@ export default function AdminMediaSettings({
     };
 
     try {
-      await setDoc(newNoteRef, newNote);
+      await setDoc(newNoteRef, sanitizeFirestoreData(newNote));
       setNoteSubject('');
       setNoteBody('');
       setHistoryStack(prev => [...prev, { type: 'create_note', note: newNote }]);

@@ -6,6 +6,59 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎬</text></svg>">
     <link rel="manifest" href="/manifest.json" />
     <title>MilliFix — Cinematic Moments</title>
+    <script>
+      // Self-healing asset loading error handling:
+      // If the browser tries to load a stale/deleted chunk from Vercel/browser cache,
+      // it will fail with a 404 error. We detect that and force a clean, hard reload.
+      window.addEventListener('error', function(e) {
+        var target = e.target;
+        if (target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK')) {
+          var url = target.src || target.href;
+          if (url && (url.indexOf('assets/') !== -1 || url.indexOf('index-') !== -1 || url.indexOf('.js') !== -1 || url.indexOf('.css') !== -1)) {
+            console.warn('Asset failed to load: ' + url + '. Refreshing page to fetch latest build...');
+            
+            // Limit reload loops (sessionStorage)
+            var reloadCount = sessionStorage.getItem('millifix_asset_reload_count') || '0';
+            var count = parseInt(reloadCount, 10);
+            if (count < 3) {
+              sessionStorage.setItem('millifix_asset_reload_count', (count + 1).toString());
+              
+              // Unregister any active service worker
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(regs) {
+                  for (var i = 0; i < regs.length; i++) {
+                    regs[i].unregister();
+                  }
+                });
+              }
+              
+              // Clear caches
+              if ('caches' in window) {
+                caches.keys().then(function(keys) {
+                  for (var i = 0; i < keys.length; i++) {
+                    caches.delete(keys[i]);
+                  }
+                });
+              }
+              
+              // Perform hard-reload
+              setTimeout(function() {
+                window.location.reload(true);
+              }, 300);
+            } else {
+              console.error('Failed to load asset after ' + count + ' reload attempts.');
+            }
+          }
+        }
+      }, true);
+      
+      // Reset the reload counter when the app successfully mounts/starts
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          sessionStorage.removeItem('millifix_asset_reload_count');
+        }, 1500);
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>
