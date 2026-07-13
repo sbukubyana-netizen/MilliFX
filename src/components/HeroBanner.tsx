@@ -4,7 +4,7 @@ import { Play, Maximize2, Minimize2, ChevronLeft, ChevronRight, Volume2, VolumeX
 
 interface HeroBannerProps {
   onPlayAll: () => void;
-  profile?: 'Girlfriend' | 'Boyfriend';
+  profile?: 'Girlfriend' | 'Boyfriend' | 'Us';
   bannerVideos?: string[];
   soundEnabled?: boolean;
 }

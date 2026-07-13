@@ -44,6 +44,157 @@ const PRESET_COVERS = [
   { name: 'Night Under Stars', url: 'https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?auto=format&fit=crop&w=800&q=80' },
 ];
 
+// Reusable URL range sequence expansion logic
+export function expandUrlsForPreview(text: string): string[] {
+  if (!text) return [];
+  const result: string[] = [];
+  const flattened: string[] = [];
+  
+  // Split input text robustly by commas, semicolons, or newlines
+  const parts = text.split(/[,\n;]/).map(p => p.trim()).filter(p => p.length > 0);
+  flattened.push(...parts);
+
+  for (const url of flattened) {
+    const trimmed = url.trim();
+    if (!trimmed) continue;
+    const match = trimmed.match(/^(.*?)(\w+?)(100|300)(\.[a-zA-Z0-9]+)?$/);
+    if (match) {
+      const prefixPath = match[1];
+      const baseName = match[2];
+      const count = parseInt(match[3], 10);
+      const ext = match[4] || (baseName.toLowerCase().includes('video') || prefixPath.toLowerCase().includes('video') ? '.mp4' : '.jpg');
+      for (let i = 1; i <= count; i++) {
+        result.push(`${prefixPath}${baseName}${i}${ext}`);
+      }
+    } else {
+      result.push(trimmed);
+    }
+  }
+  return result;
+}
+
+// Reusable Paginated Sequence Preview Grid Component
+function SequencePreviewGrid({ urlsText }: { urlsText: string }) {
+  const expandedUrls = expandUrlsForPreview(urlsText);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20; // Paginate to ensure smooth rendering and avoid connection limits
+  
+  if (expandedUrls.length === 0) {
+    return (
+      <div className="p-4 border border-dashed border-white/5 bg-black/20 rounded-xl text-center text-zinc-500 text-[11px] font-medium">
+        No links entered yet to preview
+      </div>
+    );
+  }
+
+  const totalPages = Math.ceil(expandedUrls.length / itemsPerPage);
+  
+  // Reset page if it exceeds total pages due to updates
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [expandedUrls.length, totalPages, currentPage]);
+
+  const displayedUrls = expandedUrls.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  return (
+    <div className="bg-black/30 border border-white/5 rounded-xl p-4 space-y-3.5 transition-all animate-fadeIn">
+      <div className="flex items-center justify-between border-b border-white/5 pb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-black uppercase text-accent tracking-widest">
+            Sequence Verification Grid
+          </span>
+          <span className="text-[9px] bg-accent/20 text-accent px-2 py-0.5 rounded font-mono font-black uppercase tracking-wider">
+            {expandedUrls.length} Expanded Link{expandedUrls.length > 1 ? 's' : ''}
+          </span>
+        </div>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              className="text-[9px] font-bold px-2 py-1 bg-zinc-800 text-zinc-300 rounded hover:bg-zinc-700 disabled:opacity-40 transition-colors cursor-pointer"
+            >
+              Prev
+            </button>
+            <span className="text-[9px] text-zinc-400 font-mono">
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              className="text-[9px] font-bold px-2 py-1 bg-zinc-800 text-zinc-300 rounded hover:bg-zinc-700 disabled:opacity-40 transition-colors cursor-pointer"
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 max-h-[260px] overflow-y-auto pr-1">
+        {displayedUrls.map((url, index) => {
+          const globalIndex = (currentPage - 1) * itemsPerPage + index + 1;
+          const isVideo = url.toLowerCase().endsWith('.mp4') || url.includes('video') || url.startsWith('data:video');
+          const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
+          
+          return (
+            <div key={globalIndex} className="bg-zinc-900/60 border border-white/5 rounded-lg overflow-hidden flex flex-col h-24 relative group/item hover:border-accent/30 transition-all">
+              <div className="flex-1 bg-black relative flex items-center justify-center overflow-hidden">
+                <span className="absolute top-1 left-1 z-10 text-[8px] bg-black/85 text-zinc-300 px-1 py-0.5 rounded font-mono font-bold">
+                  #{globalIndex}
+                </span>
+                
+                {isYouTube ? (
+                  <div className="flex flex-col items-center justify-center text-red-500 gap-1">
+                    <Film className="w-5 h-5 animate-pulse" />
+                    <span className="font-black uppercase tracking-widest text-[6px] text-zinc-500">YOUTUBE</span>
+                  </div>
+                ) : isVideo ? (
+                  <div className="w-full h-full relative">
+                    <video 
+                      src={url} 
+                      muted 
+                      playsInline
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const parent = e.currentTarget.parentElement;
+                        if (parent) {
+                          parent.innerHTML = `<div class="flex flex-col items-center justify-center text-accent/80 gap-1 w-full h-full"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-film"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M17 3v18"/><path d="M3 7h4"/><path d="M3 13h4"/><path d="M3 17h4"/><path d="M17 17h4"/><path d="M17 13h4"/><path d="M17 7h4"/></svg><span class="text-[6px] text-zinc-500 font-bold uppercase truncate max-w-[80px]">MP4 Asset</span></div>`;
+                        }
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <img 
+                    src={url} 
+                    alt={`Preview ${globalIndex}`}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      const parent = e.currentTarget.parentElement;
+                      if (parent) {
+                        parent.innerHTML = `<div class="flex flex-col items-center justify-center text-zinc-600 gap-1 w-full h-full"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg><span class="text-[6px] text-zinc-500 font-bold uppercase truncate max-w-[80px]">Image Asset</span></div>`;
+                      }
+                    }}
+                  />
+                )}
+              </div>
+              <div className="p-1 bg-zinc-950 border-t border-white/5 flex items-center min-w-0">
+                <span className="text-[7px] font-mono text-zinc-400 truncate w-full block text-center" title={url}>
+                  {url.substring(url.lastIndexOf('/') + 1) || url}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminMediaSettings({ 
   isOpen, 
   onClose, 
@@ -58,15 +209,21 @@ export default function AdminMediaSettings({
   const [isSaving, setIsSaving] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
+  // Backdrop preview visibility states
+  const [showGirlfriendBackdropPreview, setShowGirlfriendBackdropPreview] = useState(false);
+  const [showBoyfriendBackdropPreview, setShowBoyfriendBackdropPreview] = useState(false);
+  const [showUsBackdropPreview, setShowUsBackdropPreview] = useState(false);
+  const [showGlobalBackdropPreview, setShowGlobalBackdropPreview] = useState(false);
+
   // --- SECTION 4: STUDIO CONFIG STATE ---
   const [trailerVideoUrl, setTrailerVideoUrl] = useState(studioSettings?.trailerVideoUrl || '/videos/8.mp4');
   const [boyfriendProfileImage, setBoyfriendProfileImage] = useState(studioSettings?.boyfriendProfileImage || '');
   const [girlfriendProfileImage, setGirlfriendProfileImage] = useState(studioSettings?.girlfriendProfileImage || 'images/millicent1.jpg');
   const [usProfileImage, setUsProfileImage] = useState(studioSettings?.usProfileImage || '');
-  const [bannerUrlsText, setBannerUrlsText] = useState((studioSettings?.bannerVideos || []).join(', '));
-  const [boyfriendBannerUrlsText, setBoyfriendBannerUrlsText] = useState((studioSettings?.boyfriendBannerVideos || []).join(', '));
-  const [girlfriendBannerUrlsText, setGirlfriendBannerUrlsText] = useState((studioSettings?.girlfriendBannerVideos || []).join(', '));
-  const [usBannerUrlsText, setUsBannerUrlsText] = useState((studioSettings?.usBannerVideos || []).join(', '));
+  const [bannerUrlsText, setBannerUrlsText] = useState((studioSettings?.bannerVideos || []).join('\n'));
+  const [boyfriendBannerUrlsText, setBoyfriendBannerUrlsText] = useState((studioSettings?.boyfriendBannerVideos || []).join('\n'));
+  const [girlfriendBannerUrlsText, setGirlfriendBannerUrlsText] = useState((studioSettings?.girlfriendBannerVideos || []).join('\n'));
+  const [usBannerUrlsText, setUsBannerUrlsText] = useState((studioSettings?.usBannerVideos || []).join('\n'));
   const [backgroundSoundEnabled, setBackgroundSoundEnabled] = useState(studioSettings?.backgroundSoundEnabled || false);
   const [colorTheme, setColorTheme] = useState(studioSettings?.colorTheme || 'romantic');
 
@@ -77,10 +234,10 @@ export default function AdminMediaSettings({
       setBoyfriendProfileImage(studioSettings.boyfriendProfileImage || '');
       setGirlfriendProfileImage(studioSettings.girlfriendProfileImage || 'images/millicent1.jpg');
       setUsProfileImage(studioSettings.usProfileImage || '');
-      setBannerUrlsText((studioSettings.bannerVideos || []).join(', '));
-      setBoyfriendBannerUrlsText((studioSettings.boyfriendBannerVideos || []).join(', '));
-      setGirlfriendBannerUrlsText((studioSettings.girlfriendBannerVideos || []).join(', '));
-      setUsBannerUrlsText((studioSettings.usBannerVideos || []).join(', '));
+      setBannerUrlsText((studioSettings.bannerVideos || []).join('\n'));
+      setBoyfriendBannerUrlsText((studioSettings.boyfriendBannerVideos || []).join('\n'));
+      setGirlfriendBannerUrlsText((studioSettings.girlfriendBannerVideos || []).join('\n'));
+      setUsBannerUrlsText((studioSettings.usBannerVideos || []).join('\n'));
       setBackgroundSoundEnabled(studioSettings.backgroundSoundEnabled || false);
       setColorTheme(studioSettings.colorTheme || 'romantic');
     }
@@ -157,13 +314,13 @@ export default function AdminMediaSettings({
     } else if (target === 'us') {
       setUsProfileImage(base64);
     } else if (target === 'banner') {
-      setBannerUrlsText(prev => prev ? `${prev}, ${base64}` : base64);
+      setBannerUrlsText(prev => prev ? `${prev}\n${base64}` : base64);
     } else if (target === 'boyfriend_banner') {
-      setBoyfriendBannerUrlsText(prev => prev ? `${prev}, ${base64}` : base64);
+      setBoyfriendBannerUrlsText(prev => prev ? `${prev}\n${base64}` : base64);
     } else if (target === 'girlfriend_banner') {
-      setGirlfriendBannerUrlsText(prev => prev ? `${prev}, ${base64}` : base64);
+      setGirlfriendBannerUrlsText(prev => prev ? `${prev}\n${base64}` : base64);
     } else if (target === 'us_banner') {
-      setUsBannerUrlsText(prev => prev ? `${prev}, ${base64}` : base64);
+      setUsBannerUrlsText(prev => prev ? `${prev}\n${base64}` : base64);
     }
   };
 
@@ -172,22 +329,22 @@ export default function AdminMediaSettings({
     setIsSaving(true);
     try {
       const bannerVideos = bannerUrlsText
-        .split(',')
+        .split(/[,\n;]/)
         .map(url => url.trim())
         .filter(url => url.length > 0);
 
       const boyfriendBannerVideos = boyfriendBannerUrlsText
-        .split(',')
+        .split(/[,\n;]/)
         .map(url => url.trim())
         .filter(url => url.length > 0);
 
       const girlfriendBannerVideos = girlfriendBannerUrlsText
-        .split(',')
+        .split(/[,\n;]/)
         .map(url => url.trim())
         .filter(url => url.length > 0);
 
       const usBannerVideos = usBannerUrlsText
-        .split(',')
+        .split(/[,\n;]/)
         .map(url => url.trim())
         .filter(url => url.length > 0);
 
@@ -235,6 +392,12 @@ export default function AdminMediaSettings({
   const [customCoverUrl, setCustomCoverUrl] = useState('');
   const [createMemories, setCreateMemories] = useState<Memory[]>([]);
 
+  // Card Creation - URL range state
+  const [urlRangeInput, setUrlRangeInput] = useState('');
+  const [urlRangeTitle, setUrlRangeTitle] = useState('Moment');
+  const [showUrlRangePreview, setShowUrlRangePreview] = useState(false);
+  const [cardUploaderTab, setCardUploaderTab] = useState<'upload' | 'url_range'>('upload');
+
   // --- SECTION 2: EDIT EPISODE STATE ---
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>('');
   const [editTitle, setEditTitle] = useState('');
@@ -242,6 +405,64 @@ export default function AdminMediaSettings({
   const [editCategory, setEditCategory] = useState('');
   const [editCoverUrl, setEditCoverUrl] = useState('');
   const [editMemories, setEditMemories] = useState<Memory[]>([]);
+
+  // Card Editing - URL range state
+  const [editUrlRangeInput, setEditUrlRangeInput] = useState('');
+  const [editUrlRangeTitle, setEditUrlRangeTitle] = useState('Moment');
+  const [showEditUrlRangePreview, setShowEditUrlRangePreview] = useState(false);
+  const [editCardUploaderTab, setEditCardUploaderTab] = useState<'upload' | 'url_range'>('upload');
+
+  // Function to process and add range sequence URLs to the slide arrays
+  const addUrlRangeSlides = (isEditMode: boolean) => {
+    const text = isEditMode ? editUrlRangeInput : urlRangeInput;
+    const baseTitle = isEditMode ? editUrlRangeTitle : urlRangeTitle;
+    if (!text.trim()) {
+      alert("Please enter a URL or sequence pattern!");
+      return;
+    }
+    
+    const expanded = expandUrlsForPreview(text);
+    if (expanded.length === 0) {
+      alert("No valid URLs found!");
+      return;
+    }
+
+    const currentCount = isEditMode ? editMemories.length : createMemories.length;
+    const remainingSlots = 300 - currentCount;
+    if (remainingSlots <= 0) {
+      alert("You have reached the maximum slideshow limit of 300 items!");
+      return;
+    }
+
+    const itemsToAdd = expanded.slice(0, remainingSlots);
+    const newMemories = itemsToAdd.map((url, i) => {
+      const slideIndex = currentCount + i + 1;
+      const isVideo = url.toLowerCase().endsWith('.mp4') || url.includes('video') || url.startsWith('data:video');
+      return {
+        id: `mom-custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        title: `${baseTitle} #${slideIndex}`,
+        imageUrl: isVideo ? PRESET_COVERS[0].url : url,
+        videoUrl: isVideo ? url : undefined,
+        description: `A precious chapter of our story, slide ${slideIndex} ✨`
+      };
+    });
+
+    if (isEditMode) {
+      setEditMemories(prev => [...prev, ...newMemories]);
+      setEditUrlRangeInput('');
+      setEditUrlRangeTitle('Moment');
+    } else {
+      setCreateMemories(prev => [...prev, ...newMemories]);
+      setCreateMemories(currentList => {
+        if (currentList.length > 0 && !customCoverUrl) {
+          setCustomCoverUrl(currentList[0].imageUrl);
+        }
+        return currentList;
+      });
+      setUrlRangeInput('');
+      setUrlRangeTitle('Moment');
+    }
+  };
 
   // --- SECTION 3: DAILY NOTES STATE ---
   const [dailyNotes, setDailyNotes] = useState<{
@@ -302,11 +523,11 @@ export default function AdminMediaSettings({
   };
 
   const processUploadedFiles = (files: File[], isEditMode: boolean) => {
-    // Up to 8 total files limit check
+    // Up to 300 total files limit check
     const currentCount = isEditMode ? editMemories.length : createMemories.length;
-    const remainingSlots = 8 - currentCount;
+    const remainingSlots = 300 - currentCount;
     if (remainingSlots <= 0) {
-      alert("You have already reached the limit of 8 files for this slideshow! Delete some files if you wish to upload replacements.");
+      alert("You have already reached the limit of 300 files for this slideshow! Delete some files if you wish to upload replacements.");
       return;
     }
 
@@ -710,38 +931,38 @@ export default function AdminMediaSettings({
         </div>
 
         {/* Navigation Selector Sections */}
-        <div className="bg-zinc-950/80 px-4 md:px-6 py-2.5 border-b border-white/10 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
+        <div className="bg-zinc-950 px-4 md:px-6 py-4 border-b border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex flex-wrap gap-2 bg-zinc-900/60 p-1.5 rounded-xl border border-white/5">
             <button
               type="button"
               onClick={() => setActiveTab('create')}
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all ${activeTab === 'create' ? 'bg-accent text-white shadow-md' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'create' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
             >
               <Plus className="w-4 h-4" />
-              📽️ Create Modern Card
+              Create Card
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('edit')}
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all ${activeTab === 'edit' ? 'bg-accent text-white shadow-md' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'edit' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
             >
               <Edit className="w-4 h-4" />
-              ✏️ Manage & Customize Cards
+              Manage Cards
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('daily_notes')}
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all ${activeTab === 'daily_notes' ? 'bg-accent text-white shadow-md' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'daily_notes' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
             >
-              <span>📝</span> Daily Thoughts Creator
+              <span>📝</span> Daily Notes
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('studio_config')}
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all ${activeTab === 'studio_config' ? 'bg-accent text-white shadow-md' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'studio_config' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
             >
               <Settings className="w-4 h-4" />
-              🎬 Studio Customizations
+              Studio Config
             </button>
           </div>
 
@@ -890,40 +1111,119 @@ export default function AdminMediaSettings({
                   </div>
                 </div>
 
-                {/* Local Upload / Drag & Drop area */}
+                {/* Media Loader Panel */}
                 <div className="md:col-span-6 space-y-4">
-                  <div 
-                    onDragEnter={handleDrag}
-                    onDragOver={handleDrag}
-                    onDragLeave={handleDrag}
-                    onDrop={(e) => handleDrop(e, false)}
-                    className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all flex flex-col items-center justify-center min-h-[180px] cursor-pointer ${dragActive ? 'border-accent bg-accent/5' : 'border-white/10 bg-white/5 hover:border-white/20'}`}
-                    onClick={() => document.getElementById('local-file-selector-create')?.click()}
-                  >
-                    <input 
-                      type="file" 
-                      id="local-file-selector-create" 
-                      multiple 
-                      accept="image/*,video/*" 
-                      className="hidden" 
-                      onChange={(e) => handleFileChange(e, false)}
-                    />
-                    <Upload className="w-10 h-10 text-accent mb-3 animate-pulse" />
-                    <p className="text-xs font-black uppercase text-white tracking-widest">DRAG & DROP LOCAL FILES HERE</p>
-                    <p className="text-[10px] text-zinc-400 mt-1 max-w-xs">Supports images (.png, .jpg, .webp) or videos (.mp4) up to 8 files total. Autoplay slideshow generates seamlessly.</p>
-                    <button 
-                      type="button" 
-                      className="mt-4 px-4 py-1.5 bg-accent/20 border border-accent/30 text-accent hover:bg-accent hover:text-white rounded text-[10px] font-black uppercase tracking-wider transition-all"
+                  {/* Tab Selector for media uploader */}
+                  <div className="flex bg-zinc-950 p-1 rounded-xl border border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => setCardUploaderTab('upload')}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${cardUploaderTab === 'upload' ? 'bg-zinc-800 text-white border border-white/5 shadow' : 'text-zinc-400 hover:text-white'}`}
                     >
-                      Browse Files
+                      📁 Local Upload
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCardUploaderTab('url_range')}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${cardUploaderTab === 'url_range' ? 'bg-zinc-800 text-white border border-white/5 shadow' : 'text-zinc-400 hover:text-white'}`}
+                    >
+                      🔗 Paste URLs / 1-300 Range
                     </button>
                   </div>
 
+                  {cardUploaderTab === 'upload' ? (
+                    <div 
+                      onDragEnter={handleDrag}
+                      onDragOver={handleDrag}
+                      onDragLeave={handleDrag}
+                      onDrop={(e) => handleDrop(e, false)}
+                      className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all flex flex-col items-center justify-center min-h-[180px] cursor-pointer ${dragActive ? 'border-accent bg-accent/5' : 'border-white/10 bg-white/5 hover:border-white/20'}`}
+                      onClick={() => document.getElementById('local-file-selector-create')?.click()}
+                    >
+                      <input 
+                        type="file" 
+                        id="local-file-selector-create" 
+                        multiple 
+                        accept="image/*,video/*" 
+                        className="hidden" 
+                        onChange={(e) => handleFileChange(e, false)}
+                      />
+                      <Upload className="w-10 h-10 text-accent mb-3 animate-pulse" />
+                      <p className="text-xs font-black uppercase text-white tracking-widest">DRAG & DROP LOCAL FILES HERE</p>
+                      <p className="text-[10px] text-zinc-400 mt-1 max-w-xs">Supports images (.png, .jpg, .webp) or videos (.mp4) up to 300 files total. Autoplay slideshow generates seamlessly.</p>
+                      <button 
+                        type="button" 
+                        className="mt-4 px-4 py-1.5 bg-accent/20 border border-accent/30 text-accent hover:bg-accent hover:text-white rounded text-[10px] font-black uppercase tracking-wider transition-all"
+                      >
+                        Browse Files
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-zinc-950/60 p-5 rounded-2xl border border-white/5 space-y-4 animate-fadeIn">
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
+                            Web URL or Range Pattern (Ends with 100 or 300)
+                          </label>
+                          <textarea 
+                            rows={3}
+                            value={urlRangeInput}
+                            onChange={(e) => setUrlRangeInput(e.target.value)}
+                            placeholder="e.g. https://domain.com/love300.jpg&#10;or multiple URLs (one per line)"
+                            className="w-full bg-zinc-900 border border-white/10 p-3 rounded-lg text-[11px] text-white font-mono focus:outline-none focus:border-accent transition-all min-h-[90px]"
+                          />
+                        </div>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
+                              Base Name of Slides
+                            </label>
+                            <input 
+                              type="text"
+                              value={urlRangeTitle}
+                              onChange={(e) => setUrlRangeTitle(e.target.value)}
+                              placeholder="e.g. Moments, Memories"
+                              className="w-full bg-zinc-900 border border-white/10 px-3 py-2 rounded-lg text-[11px] text-white focus:outline-none focus:border-accent font-bold"
+                            />
+                          </div>
+                          <div className="flex items-end">
+                            <button
+                              type="button"
+                              onClick={() => addUrlRangeSlides(false)}
+                              className="w-full py-2 bg-accent text-white hover:opacity-95 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                              <Plus className="w-3.5 h-3.5" /> Append Slides
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Interactive toggle for preview grid */}
+                        <div className="pt-2 flex items-center justify-between border-t border-white/5">
+                          <span className="text-[10px] text-zinc-400 font-bold">Verify sequence URLs before appending?</span>
+                          <button
+                            type="button"
+                            onClick={() => setShowUrlRangePreview(!showUrlRangePreview)}
+                            className={`px-3 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${showUrlRangePreview ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-zinc-800 text-zinc-400 hover:text-white border border-white/5'}`}
+                          >
+                            {showUrlRangePreview ? 'Hide Preview' : 'Show Verification Grid'}
+                          </button>
+                        </div>
+
+                        {showUrlRangePreview && (
+                          <div className="pt-2">
+                            <SequencePreviewGrid urlsText={urlRangeInput} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* uploaded count */}
                   <div className="flex justify-between items-center px-1">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Uploaded Array Slides:</span>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Total Loaded Slides:</span>
                     <span className="text-[10px] bg-accent/20 text-accent font-black px-2 py-0.5 rounded uppercase tracking-wider">
-                      {createMemories.length} / 8 Limit
+                      {createMemories.length} / 300 Limit
                     </span>
                   </div>
 
@@ -931,7 +1231,7 @@ export default function AdminMediaSettings({
                   {createMemories.length === 0 && (
                     <div className="p-8 border border-white/5 bg-zinc-950/40 rounded-xl text-center">
                       <Film className="w-6 h-6 text-zinc-600 mx-auto mb-2" />
-                      <p className="text-[10px] text-zinc-500 font-bold uppercase">No files loaded yet. Build a cinematic slide deck by dragging files in!</p>
+                      <p className="text-[10px] text-zinc-500 font-bold uppercase">No files loaded yet. Build a cinematic slide deck by uploading or pasting URLs!</p>
                     </div>
                   )}
                 </div>
@@ -1131,39 +1431,118 @@ export default function AdminMediaSettings({
                       </div>
                     </div>
 
-                    {/* Add More Media via Local Uploads to Slideshow */}
+                     {/* Media Loader Panel for Editing */}
                     <div className="md:col-span-6 space-y-4">
-                      <div 
-                        onDragEnter={handleDrag}
-                        onDragOver={handleDrag}
-                        onDragLeave={handleDrag}
-                        onDrop={(e) => handleDrop(e, true)}
-                        className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all flex flex-col items-center justify-center min-h-[180px] cursor-pointer ${dragActive ? 'border-accent bg-accent/5' : 'border-white/10 bg-white/5 hover:border-white/20'}`}
-                        onClick={() => document.getElementById('local-file-selector-edit')?.click()}
-                      >
-                        <input 
-                          type="file" 
-                          id="local-file-selector-edit" 
-                          multiple 
-                          accept="image/*,video/*" 
-                          className="hidden" 
-                          onChange={(e) => handleFileChange(e, true)}
-                        />
-                        <Upload className="w-10 h-10 text-accent mb-3 animate-pulse" />
-                        <p className="text-xs font-black uppercase text-white tracking-widest">UPLOAD MORE PHOTOS/VIDEOS HERE</p>
-                        <p className="text-[10px] text-zinc-400 mt-1 max-w-xs">Instantly appends uploads to the slideshow queue (maximum 8 allowed total in the slide series).</p>
-                        <button 
-                          type="button" 
-                          className="mt-4 px-4 py-1.5 bg-accent/20 border border-accent/30 text-accent hover:bg-accent hover:text-white rounded text-[10px] font-black uppercase tracking-wider transition-all"
+                      {/* Tab Selector for edit media uploader */}
+                      <div className="flex bg-zinc-950 p-1 rounded-xl border border-white/5">
+                        <button
+                          type="button"
+                          onClick={() => setEditCardUploaderTab('upload')}
+                          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${editCardUploaderTab === 'upload' ? 'bg-zinc-800 text-white border border-white/5 shadow' : 'text-zinc-400 hover:text-white'}`}
                         >
-                          Append Media
+                          📁 Local Upload
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditCardUploaderTab('url_range')}
+                          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${editCardUploaderTab === 'url_range' ? 'bg-zinc-800 text-white border border-white/5 shadow' : 'text-zinc-400 hover:text-white'}`}
+                        >
+                          🔗 Paste URLs / 1-300 Range
                         </button>
                       </div>
+
+                      {editCardUploaderTab === 'upload' ? (
+                        <div 
+                          onDragEnter={handleDrag}
+                          onDragOver={handleDrag}
+                          onDragLeave={handleDrag}
+                          onDrop={(e) => handleDrop(e, true)}
+                          className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all flex flex-col items-center justify-center min-h-[180px] cursor-pointer ${dragActive ? 'border-accent bg-accent/5' : 'border-white/10 bg-white/5 hover:border-white/20'}`}
+                          onClick={() => document.getElementById('local-file-selector-edit')?.click()}
+                        >
+                          <input 
+                            type="file" 
+                            id="local-file-selector-edit" 
+                            multiple 
+                            accept="image/*,video/*" 
+                            className="hidden" 
+                            onChange={(e) => handleFileChange(e, true)}
+                          />
+                          <Upload className="w-10 h-10 text-accent mb-3 animate-pulse" />
+                          <p className="text-xs font-black uppercase text-white tracking-widest">UPLOAD MORE PHOTOS/VIDEOS HERE</p>
+                          <p className="text-[10px] text-zinc-400 mt-1 max-w-xs">Instantly appends uploads to the slideshow queue (maximum 300 allowed total in the slide series).</p>
+                          <button 
+                            type="button" 
+                            className="mt-4 px-4 py-1.5 bg-accent/20 border border-accent/30 text-accent hover:bg-accent hover:text-white rounded text-[10px] font-black uppercase tracking-wider transition-all"
+                          >
+                            Append Media
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="bg-zinc-950/60 p-5 rounded-2xl border border-white/5 space-y-4 animate-fadeIn">
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
+                                Web URL or Range Pattern (Ends with 100 or 300)
+                              </label>
+                              <textarea 
+                                rows={3}
+                                value={editUrlRangeInput}
+                                onChange={(e) => setEditUrlRangeInput(e.target.value)}
+                                placeholder="e.g. https://domain.com/love300.jpg&#10;or multiple URLs (one per line)"
+                                className="w-full bg-zinc-900 border border-white/10 p-3 rounded-lg text-[11px] text-white font-mono focus:outline-none focus:border-accent transition-all min-h-[90px]"
+                              />
+                            </div>
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
+                                  Base Name of Slides
+                                </label>
+                                <input 
+                                  type="text"
+                                  value={editUrlRangeTitle}
+                                  onChange={(e) => setEditUrlRangeTitle(e.target.value)}
+                                  placeholder="e.g. Moments, Memories"
+                                  className="w-full bg-zinc-900 border border-white/10 px-3 py-2 rounded-lg text-[11px] text-white focus:outline-none focus:border-accent font-bold"
+                                />
+                              </div>
+                              <div className="flex items-end">
+                                <button
+                                  type="button"
+                                  onClick={() => addUrlRangeSlides(true)}
+                                  className="w-full py-2 bg-accent text-white hover:opacity-95 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                                >
+                                  <Plus className="w-3.5 h-3.5" /> Append Slides
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Interactive toggle for preview grid */}
+                            <div className="pt-2 flex items-center justify-between border-t border-white/5">
+                              <span className="text-[10px] text-zinc-400 font-bold">Verify sequence URLs before appending?</span>
+                              <button
+                                type="button"
+                                onClick={() => setShowEditUrlRangePreview(!showEditUrlRangePreview)}
+                                className={`px-3 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${showEditUrlRangePreview ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-zinc-800 text-zinc-400 hover:text-white border border-white/5'}`}
+                              >
+                                {showEditUrlRangePreview ? 'Hide Preview' : 'Show Verification Grid'}
+                              </button>
+                            </div>
+
+                            {showEditUrlRangePreview && (
+                              <div className="pt-2">
+                                <SequencePreviewGrid urlsText={editUrlRangeInput} />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       <div className="flex justify-between items-center px-1">
                         <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Current Slides count:</span>
                         <span className="text-[10px] bg-accent/25 text-accent font-black px-2 py-0.5 rounded uppercase tracking-wider">
-                          {editMemories.length} / 8 Limit
+                          {editMemories.length} / 300 Limit
                         </span>
                       </div>
                     </div>
@@ -1237,7 +1616,7 @@ export default function AdminMediaSettings({
                   <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center border border-white/10 text-zinc-500">
                     ✏️
                   </div>
-                  <p className="text-xs text-zinc-400 font-medium max-w-xs">Choose any active card row from the interactive dropdown list above to modify covers, captions, or add up to 8 slides of media!</p>
+                  <p className="text-xs text-zinc-400 font-medium max-w-xs">Choose any active card row from the interactive dropdown list above to modify covers, captions, or add up to 300 slides of media!</p>
                 </div>
               )}
             </div>
@@ -1551,165 +1930,250 @@ export default function AdminMediaSettings({
               </div>
 
               {/* SECTION C: HERO BANNER VIDEOS */}
-              <div className="bg-zinc-950/60 p-5 rounded-lg border border-white/5 space-y-6">
+              <div className="bg-zinc-950/60 p-6 rounded-xl border border-white/5 space-y-6">
                 <div className="space-y-1">
-                  <h4 className="text-sm font-black uppercase tracking-wider text-[#ff2d55] flex items-center gap-2">
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-[#ff2d55] flex items-center gap-2">
                     <Sparkles className="w-4 h-4 animate-pulse" /> 3. Profile-Specific Hero Backdrops
                   </h4>
-                  <p className="text-[11px] text-zinc-400">
-                    Set customized slideshow backdrops. Put comma-separated links to MP4 videos, online images (JPG/PNG/WebP), or <strong className="text-zinc-200">YouTube URLs</strong>!
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    Set customized slideshow backdrops. Put links to MP4 videos, online images (JPG/PNG/WebP), or <strong className="text-zinc-200">YouTube URLs</strong>. Please put <strong className="text-accent">one URL per line</strong> for optimal, uncluttered organization!
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-1">
                   {/* Girlfriend Specific Backdrop */}
-                  <div className="border border-white/10 p-4 rounded bg-zinc-900/50 space-y-3">
-                    <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                      <span className="text-[10px] font-black uppercase text-accent tracking-widest block">
-                        Milli's Profile Backdrops
-                      </span>
-                      <span className="text-[9px] bg-accent/10 text-accent px-2 py-0.5 rounded font-black uppercase tracking-widest">
-                        Girlfriend
-                      </span>
-                    </div>
-                    <div>
-                      <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
-                        Backdrop Links (Youtube, Video URLs, or Images)
-                      </label>
-                      <textarea 
-                        rows={3}
-                        value={girlfriendBannerUrlsText}
-                        onChange={(e) => setGirlfriendBannerUrlsText(e.target.value)}
-                        placeholder="e.g. videos/6.mp4, https://www.youtube.com/watch?v=..., https://images.unsplash.com/..."
-                        className="w-full bg-zinc-900 border border-white/10 p-3 rounded text-[11px] text-white font-mono focus:outline-none focus:border-accent"
-                      />
-                    </div>
-                    <div>
-                      <span className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
-                        Or Append Local Media file
-                      </span>
-                      <label className="flex items-center justify-center border border-dashed border-white/10 hover:border-accent rounded py-2 px-3 text-center cursor-pointer hover:bg-white/5 transition-all text-xs text-zinc-300 gap-2">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Upload File</span>
-                        <input 
-                          type="file" 
-                          accept="image/*,video/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleConfigLocalUpload(file, 'girlfriend_banner');
-                          }}
-                          className="hidden" 
+                  <div className="border border-white/5 p-5 rounded-xl bg-zinc-900/40 space-y-4 hover:border-accent/20 transition-colors flex flex-col justify-between">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2.5">
+                        <span className="text-[10px] font-black uppercase text-accent tracking-widest block">
+                          Milli's Backdrops
+                        </span>
+                        <span className="text-[9px] bg-accent/10 text-accent px-2 py-0.5 rounded font-black uppercase tracking-widest">
+                          Girlfriend
+                        </span>
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">
+                          Backdrop Links (One per line)
+                        </label>
+                        <textarea 
+                          rows={4}
+                          value={girlfriendBannerUrlsText}
+                          onChange={(e) => setGirlfriendBannerUrlsText(e.target.value)}
+                          placeholder="videos/6.mp4&#10;https://youtube.com/watch?v=...&#10;https://images.unsplash.com/..."
+                          className="w-full bg-zinc-950 border border-white/10 p-3 rounded-lg text-[11px] text-white font-mono focus:outline-none focus:border-accent transition-all min-h-[100px]"
                         />
-                      </label>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">
+                          Or Append Local Media file
+                        </span>
+                        <label className="flex items-center justify-center border border-dashed border-white/10 hover:border-accent rounded-lg py-2.5 px-3 text-center cursor-pointer hover:bg-white/5 transition-all text-xs text-zinc-300 gap-2">
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Upload File</span>
+                          <input 
+                            type="file" 
+                            accept="image/*,video/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleConfigLocalUpload(file, 'girlfriend_banner');
+                            }}
+                            className="hidden" 
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Interactive Preview Button */}
+                    <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                      <span className="text-[8px] text-zinc-500 font-bold uppercase">Live Range Preview</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowGirlfriendBackdropPreview(!showGirlfriendBackdropPreview)}
+                        className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer ${showGirlfriendBackdropPreview ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-zinc-800 text-zinc-400 hover:text-white border border-white/5'}`}
+                      >
+                        {showGirlfriendBackdropPreview ? 'Hide' : 'Verify'}
+                      </button>
                     </div>
                   </div>
 
                   {/* Boyfriend Specific Backdrop */}
-                  <div className="border border-white/10 p-4 rounded bg-zinc-900/50 space-y-3">
-                    <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                      <span className="text-[10px] font-black uppercase text-violet-400 tracking-widest block">
-                        Sbu's Profile Backdrops
-                      </span>
-                      <span className="text-[9px] bg-violet-500/10 text-violet-400 px-2 py-0.5 rounded font-black uppercase tracking-widest">
-                        Boyfriend
-                      </span>
-                    </div>
-                    <div>
-                      <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
-                        Backdrop Links (Youtube, Video URLs, or Images)
-                      </label>
-                      <textarea 
-                        rows={3}
-                        value={boyfriendBannerUrlsText}
-                        onChange={(e) => setBoyfriendBannerUrlsText(e.target.value)}
-                        placeholder="e.g. https://www.youtube.com/watch?v=..., videos/7.mp4, https://images.unsplash.com/..."
-                        className="w-full bg-zinc-900 border border-white/10 p-3 rounded text-[11px] text-white font-mono focus:outline-none focus:border-accent"
-                      />
-                    </div>
-                    <div>
-                      <span className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
-                        Or Append Local Media file
-                      </span>
-                      <label className="flex items-center justify-center border border-dashed border-white/10 hover:border-accent rounded py-2 px-3 text-center cursor-pointer hover:bg-white/5 transition-all text-xs text-zinc-300 gap-2">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Upload File</span>
-                        <input 
-                          type="file" 
-                          accept="image/*,video/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleConfigLocalUpload(file, 'boyfriend_banner');
-                          }}
-                          className="hidden" 
+                  <div className="border border-white/5 p-5 rounded-xl bg-zinc-900/40 space-y-4 hover:border-violet-500/20 transition-colors flex flex-col justify-between">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2.5">
+                        <span className="text-[10px] font-black uppercase text-violet-400 tracking-widest block">
+                          Sbu's Backdrops
+                        </span>
+                        <span className="text-[9px] bg-violet-500/10 text-violet-400 px-2 py-0.5 rounded font-black uppercase tracking-widest">
+                          Boyfriend
+                        </span>
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">
+                          Backdrop Links (One per line)
+                        </label>
+                        <textarea 
+                          rows={4}
+                          value={boyfriendBannerUrlsText}
+                          onChange={(e) => setBoyfriendBannerUrlsText(e.target.value)}
+                          placeholder="videos/7.mp4&#10;https://youtube.com/watch?v=...&#10;https://images.unsplash.com/..."
+                          className="w-full bg-zinc-950 border border-white/10 p-3 rounded-lg text-[11px] text-white font-mono focus:outline-none focus:border-accent transition-all min-h-[100px]"
                         />
-                      </label>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">
+                          Or Append Local Media file
+                        </span>
+                        <label className="flex items-center justify-center border border-dashed border-white/10 hover:border-accent rounded-lg py-2.5 px-3 text-center cursor-pointer hover:bg-white/5 transition-all text-xs text-zinc-300 gap-2">
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Upload File</span>
+                          <input 
+                            type="file" 
+                            accept="image/*,video/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleConfigLocalUpload(file, 'boyfriend_banner');
+                            }}
+                            className="hidden" 
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Interactive Preview Button */}
+                    <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                      <span className="text-[8px] text-zinc-500 font-bold uppercase">Live Range Preview</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowBoyfriendBackdropPreview(!showBoyfriendBackdropPreview)}
+                        className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer ${showBoyfriendBackdropPreview ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-zinc-800 text-zinc-400 hover:text-white border border-white/5'}`}
+                      >
+                        {showBoyfriendBackdropPreview ? 'Hide' : 'Verify'}
+                      </button>
                     </div>
                   </div>
 
                   {/* Us Specific Backdrop */}
-                  <div className="border border-white/15 p-4 rounded bg-zinc-900/50 space-y-3">
-                    <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                      <span className="text-[10px] font-black uppercase text-pink-400 tracking-widest block">
-                        Us Profile Backdrops
-                      </span>
-                      <span className="text-[9px] bg-pink-500/10 text-pink-400 px-2 py-0.5 rounded font-black uppercase tracking-widest animate-pulse">
-                        Us (Together)
-                      </span>
-                    </div>
-                    <div>
-                      <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
-                        Backdrop Links (Youtube, Video URLs, or Images)
-                      </label>
-                      <textarea 
-                        rows={3}
-                        value={usBannerUrlsText}
-                        onChange={(e) => setUsBannerUrlsText(e.target.value)}
-                        placeholder="e.g. videos/8.mp4, https://www.youtube.com/watch?v=..., https://images.unsplash.com/..."
-                        className="w-full bg-zinc-900 border border-white/10 p-3 rounded text-[11px] text-white font-mono focus:outline-none focus:border-accent"
-                      />
-                    </div>
-                    <div>
-                      <span className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
-                        Or Append Local Media file
-                      </span>
-                      <label className="flex items-center justify-center border border-dashed border-white/10 hover:border-accent rounded py-2 px-3 text-center cursor-pointer hover:bg-white/5 transition-all text-xs text-zinc-300 gap-2">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Upload File</span>
-                        <input 
-                          type="file" 
-                          accept="image/*,video/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleConfigLocalUpload(file, 'us_banner');
-                          }}
-                          className="hidden" 
+                  <div className="border border-white/5 p-5 rounded-xl bg-zinc-900/40 space-y-4 hover:border-pink-500/20 transition-colors flex flex-col justify-between">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2.5">
+                        <span className="text-[10px] font-black uppercase text-pink-400 tracking-widest block">
+                          Us Profile Backdrops
+                        </span>
+                        <span className="text-[9px] bg-pink-500/10 text-pink-400 px-2 py-0.5 rounded font-black uppercase tracking-widest animate-pulse">
+                          Us (Together)
+                        </span>
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">
+                          Backdrop Links (One per line)
+                        </label>
+                        <textarea 
+                          rows={4}
+                          value={usBannerUrlsText}
+                          onChange={(e) => setUsBannerUrlsText(e.target.value)}
+                          placeholder="videos/8.mp4&#10;https://youtube.com/watch?v=...&#10;https://images.unsplash.com/..."
+                          className="w-full bg-zinc-950 border border-white/10 p-3 rounded-lg text-[11px] text-white font-mono focus:outline-none focus:border-accent transition-all min-h-[100px]"
                         />
-                      </label>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">
+                          Or Append Local Media file
+                        </span>
+                        <label className="flex items-center justify-center border border-dashed border-white/10 hover:border-accent rounded-lg py-2.5 px-3 text-center cursor-pointer hover:bg-white/5 transition-all text-xs text-zinc-300 gap-2">
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Upload File</span>
+                          <input 
+                            type="file" 
+                            accept="image/*,video/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleConfigLocalUpload(file, 'us_banner');
+                            }}
+                            className="hidden" 
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Interactive Preview Button */}
+                    <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                      <span className="text-[8px] text-zinc-500 font-bold uppercase">Live Range Preview</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowUsBackdropPreview(!showUsBackdropPreview)}
+                        className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer ${showUsBackdropPreview ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-zinc-800 text-zinc-400 hover:text-white border border-white/5'}`}
+                      >
+                        {showUsBackdropPreview ? 'Hide' : 'Verify'}
+                      </button>
                     </div>
                   </div>
                 </div>
 
-                <div className="border-t border-white/5 pt-4 space-y-3">
+                {/* Individual Backdrop preview sheets shown inline on toggle */}
+                {(showGirlfriendBackdropPreview || showBoyfriendBackdropPreview || showUsBackdropPreview) && (
+                  <div className="space-y-4 bg-zinc-950/40 p-4 rounded-xl border border-white/5">
+                    {showGirlfriendBackdropPreview && (
+                      <div className="space-y-2 animate-fadeIn">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-accent">Milli's Backdrops Preview:</span>
+                        <SequencePreviewGrid urlsText={girlfriendBannerUrlsText} />
+                      </div>
+                    )}
+                    {showBoyfriendBackdropPreview && (
+                      <div className="space-y-2 animate-fadeIn">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-violet-400">Sbu's Backdrops Preview:</span>
+                        <SequencePreviewGrid urlsText={boyfriendBannerUrlsText} />
+                      </div>
+                    )}
+                    {showUsBackdropPreview && (
+                      <div className="space-y-2 animate-fadeIn">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-pink-400">Us Backdrops Preview:</span>
+                        <SequencePreviewGrid urlsText={usBannerUrlsText} />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="border-t border-white/5 pt-5 space-y-4">
                   <div>
-                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
-                      General Global Fallback Backdrops (Comma separated list)
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                      General Global Fallback Backdrops (One per line)
                     </label>
                     <textarea 
-                      rows={2}
+                      rows={3}
                       value={bannerUrlsText}
                       onChange={(e) => setBannerUrlsText(e.target.value)}
-                      placeholder="videos/6.mp4, videos/7.mp4"
-                      className="w-full bg-zinc-900 border border-white/10 p-3 rounded text-xs text-white font-mono focus:outline-none focus:border-accent"
+                      placeholder="videos/6.mp4&#10;videos/7.mp4"
+                      className="w-full bg-zinc-950 border border-white/10 p-3 rounded-lg text-xs text-white font-mono focus:outline-none focus:border-accent min-h-[80px]"
                     />
                   </div>
 
+                  {/* Fallback Interactive Preview */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-zinc-500 font-bold uppercase">Live Global Range Preview</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowGlobalBackdropPreview(!showGlobalBackdropPreview)}
+                      className={`px-3 py-1 rounded text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${showGlobalBackdropPreview ? 'bg-accent/20 text-accent border border-accent/30' : 'bg-zinc-800 text-zinc-400 hover:text-white border border-white/5'}`}
+                    >
+                      {showGlobalBackdropPreview ? 'Hide Global Preview' : 'Verify Global Links'}
+                    </button>
+                  </div>
+
+                  {showGlobalBackdropPreview && (
+                    <div className="animate-fadeIn">
+                      <SequencePreviewGrid urlsText={bannerUrlsText} />
+                    </div>
+                  )}
+
                   <div>
-                    <span className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
+                    <span className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">
                       Or Upload and Append General Backdrop File (.mp4)
                     </span>
-                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-white/10 hover:border-accent rounded p-4 text-center cursor-pointer hover:bg-white/5 transition-all">
-                      <Upload className="w-5 h-5 text-zinc-500 mb-2" />
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-white/10 hover:border-accent rounded-xl p-6 text-center cursor-pointer hover:bg-white/5 transition-all">
+                      <Upload className="w-6 h-6 text-zinc-500 mb-2" />
                       <span className="text-xs font-bold text-zinc-300">Upload background video</span>
+                      <span className="text-[10px] text-zinc-500 mt-0.5">Appends to the above global list automatically</span>
                       <input 
                         type="file" 
                         accept="video/mp4" 
@@ -1723,59 +2187,7 @@ export default function AdminMediaSettings({
                   </div>
                 </div>
 
-                {/* Accent Color/Theme Preference */}
-                <div className="border-t border-white/5 pt-4 space-y-3">
-                  <div>
-                    <span className="block text-[10px] font-black text-zinc-100 uppercase tracking-widest">
-                      Color Palette & Themes
-                    </span>
-                    <span className="block text-[10px] text-zinc-400 mt-1 mb-3 font-normal">
-                      Select a custom dynamic color theme. This instantly changes the main accents, gradients, glows, and branding across the entire experience.
-                    </span>
-                    
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {[
-                        { id: 'romantic', name: 'Romantic Pink/Red', hex: '#ff2d55' },
-                        { id: 'sunset', name: 'Sunset Warm Orange', hex: '#ff8c00' },
-                        { id: 'royal', name: 'Royal Velvet Purple', hex: '#7c3aed' },
-                        { id: 'gold', name: 'Golden Retro Nostalgia', hex: '#d4af37' },
-                        { id: 'rose', name: 'Deep Midnight Rose', hex: '#e11d48' },
-                        { id: 'teal', name: 'Ocean Breathe Teal', hex: '#0d9488' },
-                        { id: 'emerald', name: 'Emerald Forest Green', hex: '#059669' },
-                      ].map((themeItem) => {
-                        const isSelected = colorTheme === themeItem.id;
-                        return (
-                          <button
-                            key={themeItem.id}
-                            type="button"
-                            onClick={() => {
-                              setColorTheme(themeItem.id);
-                              // Preview change on doc element immediately for delightful feedback before saving!
-                              document.documentElement.style.setProperty('--accent-main', themeItem.hex);
-                            }}
-                            className={`flex items-center gap-2.5 p-2 rounded-xl border text-left transition-all relative cursor-pointer ${
-                              isSelected 
-                                ? 'bg-white/5 border-accent text-white shadow-lg font-bold' 
-                                : 'bg-zinc-950/40 border-white/5 text-zinc-400 hover:border-white/10 hover:text-zinc-200'
-                            }`}
-                          >
-                            <div 
-                              className="w-3.5 h-3.5 rounded-full shrink-0 flex items-center justify-center border border-white/10"
-                              style={{ backgroundColor: themeItem.hex }}
-                            >
-                              {isSelected && (
-                                <div className="w-1.5 h-1.5 bg-white rounded-full animate-scaleIn" />
-                              )}
-                            </div>
-                            <span className="text-[9px] font-black uppercase tracking-wider truncate">
-                              {themeItem.name.replace('/Red', '').replace('Warm ', '').replace('Retro ', '').replace('Breathe ', '').replace('Forest ', '')}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
+
 
                 {/* Background Sound Preferences */}
                 <div className="border-t border-white/5 pt-4">

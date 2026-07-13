@@ -38,7 +38,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
       icon: <Calendar className="w-5 h-5 text-emerald-400" />,
       tag: "Timeline",
       title: "Multiple Milestone Countdown Tracker",
-      desc: "Enables partners to monitor separate count timelines simultaneously: our official Anniversary (Jan 18), Sbu's Birthday (Jan 26), and Milli's Birthday (July 12). Switch active timelines instantly from the dashboard."
+      desc: "Enables partners to monitor separate count timelines simultaneously: our official Anniversary (Jan 18), Sbu's Birthday (Jan 26), and Milli's Birthday (July 8). Switch active timelines instantly from the dashboard."
     },
     {
       icon: <Volume2 className="w-5 h-5 text-amber-400" />,

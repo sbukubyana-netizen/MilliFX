@@ -5,6 +5,16 @@ import { TARGET_DATE, CATEGORIES } from '../constants';
 import WhatsNewModal from './WhatsNewModal';
 import InstallPromptModal from './InstallPromptModal';
 
+const NAVBAR_THEMES = [
+  { id: 'romantic', name: 'Romantic Pink', hex: '#ff2d55' },
+  { id: 'sunset', name: 'Sunset Orange', hex: '#f97316' },
+  { id: 'royal', name: 'Royal Velvet Purple', hex: '#8b5cf6' },
+  { id: 'nostalgia', name: 'Golden Nostalgia', hex: '#eab308' },
+  { id: 'rose', name: 'Deep Midnight Rose', hex: '#e11d48' },
+  { id: 'teal', name: 'Ocean Teal', hex: '#0d9488' },
+  { id: 'emerald', name: 'Emerald Green', hex: '#059669' },
+];
+
 interface NavbarProps {
   theme: 'dark' | 'light';
   searchQuery: string;
@@ -17,6 +27,8 @@ interface NavbarProps {
   usImage?: string;
   soundEnabled: boolean;
   onToggleSound: () => void;
+  colorTheme?: string;
+  onChangeColorTheme?: (theme: string) => void;
 }
 
 export default function Navbar({ 
@@ -30,7 +42,9 @@ export default function Navbar({
   boyfriendImage,
   usImage,
   soundEnabled,
-  onToggleSound
+  onToggleSound,
+  colorTheme = 'romantic',
+  onChangeColorTheme
 }: NavbarProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [showBrowseMenu, setShowBrowseMenu] = useState(false);
@@ -118,9 +132,11 @@ export default function Navbar({
           <button 
             onMouseEnter={() => setShowBrowseMenu(true)}
             onClick={() => setShowBrowseMenu(!showBrowseMenu)}
-            className="flex items-center gap-1 text-xs md:text-sm font-medium text-text-dim hover:text-text-main transition-colors"
+            className="flex items-center gap-1.5 text-xs md:text-sm font-semibold text-text-dim hover:text-text-main transition-colors select-none"
           >
-            Browse <ChevronDown className={`w-4 h-4 transition-transform ${showBrowseMenu ? 'rotate-180' : ''}`} />
+            <Sparkles className="w-4 h-4 text-accent animate-pulse" />
+            <span>Themes</span>
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${showBrowseMenu ? 'rotate-180' : ''}`} />
           </button>
           
           <AnimatePresence>
@@ -130,21 +146,42 @@ export default function Navbar({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
                 onMouseLeave={() => setShowBrowseMenu(false)}
-                className={`absolute top-full left-0 mt-4 p-5 rounded-lg bg-bg-deep border border-border-subtle shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-w-[280px] w-max z-[110] grid grid-cols-1 gap-1`}
+                className="absolute top-full left-0 mt-4 p-5 rounded-2xl bg-zinc-950 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.85)] min-w-[320px] max-w-[360px] z-[120] space-y-4"
               >
-                <div className="absolute -top-2 left-4 w-4 h-4 bg-bg-deep border-t border-l border-border-subtle rotate-45" />
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => {
-                      scrollToCategory(cat);
-                      setShowBrowseMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 rounded-md text-[11px] font-black text-text-dim hover:text-accent hover:bg-white/5 transition-all uppercase tracking-[0.2em] whitespace-nowrap"
-                  >
-                    {cat.replace(' in MilliSbu', '')}
-                  </button>
-                ))}
+                <div className="absolute -top-2 left-6 w-4 h-4 bg-zinc-950 border-t border-l border-white/10 rotate-45" />
+                <div className="space-y-1 text-left">
+                  <h3 className="text-xs font-black text-white uppercase tracking-wider">Color Palette & Themes</h3>
+                  <p className="text-[10px] text-zinc-400 leading-normal font-medium">
+                    Select a custom dynamic color theme. This instantly changes the main accents, gradients, glows, and branding across the entire experience.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-1.5 pt-1">
+                  {NAVBAR_THEMES.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        if (onChangeColorTheme) onChangeColorTheme(t.id);
+                        setShowBrowseMenu(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                        colorTheme === t.id 
+                          ? 'bg-accent/15 text-accent border border-accent/20' 
+                          : 'text-zinc-300 hover:text-white hover:bg-white/5 border border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span 
+                          className="w-2.5 h-2.5 rounded-full shadow-xs shrink-0" 
+                          style={{ backgroundColor: t.hex, boxShadow: `0 0 8px ${t.hex}` }}
+                        />
+                        <span>{t.name}</span>
+                      </div>
+                      {colorTheme === t.id && (
+                        <span className="text-[10px] uppercase font-black tracking-widest text-accent animate-pulse">Active</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -507,26 +544,6 @@ export default function Navbar({
                 <Download className="w-4 h-4 text-accent" />
                 <span>App Link</span>
               </button>
-
-              {/* Notifications / Inbox with counts */}
-              <button
-                onClick={() => {
-                  setShowNotifications(!showNotifications);
-                }}
-                className={`py-3 px-2 rounded-xl border flex flex-col items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer w-full h-auto min-h-[44px] ${
-                  showNotifications
-                    ? 'bg-accent/15 border-accent text-accent'
-                    : theme === 'dark'
-                      ? 'bg-white/5 border-white/5 text-text-dim hover:bg-white/10 hover:text-white'
-                      : 'bg-black/5 border-black/5 text-zinc-600 hover:bg-black/10 hover:text-black'
-                }`}
-              >
-                <div className="relative">
-                  <Bell className="w-4 h-4" />
-                  <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-accent rounded-full" />
-                </div>
-                <span>Inbox</span>
-              </button>
             </div>
 
             {/* Notifications panel in menu block, styled if active */}
@@ -563,23 +580,34 @@ export default function Navbar({
               </div>
             )}
 
-            {/* Browse Categories inside mobile menu */}
-            <div className="w-full border-t border-white/5 pt-4 space-y-2">
-              <span className="text-[9px] font-black uppercase tracking-widest text-[#ff2d55] block px-1">Cinematic Genres</span>
-              <div className="flex flex-col gap-1 w-full">
-                {CATEGORIES.map((cat) => (
+            {/* Color Palette & Themes inside mobile menu */}
+            <div className="w-full border-t border-white/5 pt-4 space-y-3">
+              <div className="space-y-1 px-1 text-left">
+                <span className="text-[9px] font-black uppercase tracking-widest text-accent block">Color Palette & Themes</span>
+                <p className="text-[9px] text-zinc-400 leading-normal font-medium">
+                  Select a custom dynamic color theme. This instantly changes the main accents, gradients, glows, and branding across the entire experience.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 w-full">
+                {NAVBAR_THEMES.map((t) => (
                   <button
-                    key={cat}
+                    key={t.id}
                     onClick={() => {
-                      scrollToCategory(cat);
-                      setIsMobileMenuOpen(false);
+                      if (onChangeColorTheme) onChangeColorTheme(t.id);
                     }}
-                    className={`w-full text-left px-3 py-2.5 rounded-lg text-[10.5px] font-black uppercase tracking-widest transition-all flex items-center justify-between ${
-                      theme === 'dark' ? 'hover:bg-white/5 text-zinc-400 hover:text-white' : 'hover:bg-black/5 text-zinc-700 hover:text-black'
+                    className={`text-left p-3 rounded-xl text-[11px] font-bold transition-all flex flex-col gap-1.5 cursor-pointer border ${
+                      colorTheme === t.id 
+                        ? 'bg-accent/15 text-accent border-accent/30 shadow-[0_0_12px_rgba(255,45,85,0.15)]' 
+                        : 'bg-zinc-900/40 border-white/5 text-zinc-300 hover:text-white'
                     }`}
                   >
-                    <span>{cat.replace(' in MilliSbu', '')}</span>
-                    <span className="text-accent">→</span>
+                    <div className="flex items-center gap-1.5 w-full">
+                      <span 
+                        className="w-2.5 h-2.5 rounded-full shrink-0" 
+                        style={{ backgroundColor: t.hex, boxShadow: `0 0 6px ${t.hex}` }}
+                      />
+                      <span className="truncate">{t.name}</span>
+                    </div>
                   </button>
                 ))}
               </div>

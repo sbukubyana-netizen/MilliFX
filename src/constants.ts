@@ -299,9 +299,9 @@ export const IMPORTANT_DATES: ImportantDate[] = [
   {
     id: 'milli-birthday',
     name: "Milli's Birthday 🎂",
-    dateStr: '12 July',
+    dateStr: '08 July',
     month: 6,
-    day: 12,
+    day: 8,
     celebrationTitle: "Happy Birthday Milli! 🎉🌸",
     celebrationBody: "Wishing the most beautiful, wonderful leading lady the happiest of birthdays today! Thank you for filling our world with radiant smiles and joy! I love you so much! Dearest Millicent 💖✨",
     badge: "Girlfriend's Big Day",

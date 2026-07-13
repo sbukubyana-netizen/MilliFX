@@ -18,7 +18,6 @@ import ImageModal from './components/ImageModal';
 import CountdownPage from './components/CountdownPage';
 import BackgroundMusic from './components/BackgroundMusic';
 import Notification from './components/Notification';
-import CountdownBox from './components/CountdownBox';
 import CelebrationPortal from './components/CelebrationPortal';
 import LoveLetter from './components/LoveLetter';
 import LoveNotesBoard from './components/LoveNotesBoard';
@@ -31,6 +30,73 @@ import AppBackground from './components/AppBackground';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { PlayCircle } from 'lucide-react';
+
+// Helper functions for dynamic 1 to 100 URL sequence expansion support
+function expandMediaUrls(urls: string[]): string[] {
+  if (!urls) return [];
+  const result: string[] = [];
+  const flattened: string[] = [];
+  
+  // Robustly split any elements that contain commas, semicolons, or newlines
+  for (const url of urls) {
+    if (!url) continue;
+    const parts = url.split(/[,\n;]/).map(p => p.trim()).filter(p => p.length > 0);
+    flattened.push(...parts);
+  }
+
+  for (const url of flattened) {
+    const trimmed = url.trim();
+    if (!trimmed) continue;
+    const match = trimmed.match(/^(.*?)(\w+?)100(\.[a-zA-Z0-9]+)?$/);
+    if (match) {
+      const prefixPath = match[1];
+      const baseName = match[2];
+      const ext = match[3] || (baseName.toLowerCase().includes('video') || prefixPath.toLowerCase().includes('video') ? '.mp4' : '.jpg');
+      for (let i = 1; i <= 100; i++) {
+        result.push(`${prefixPath}${baseName}${i}${ext}`);
+      }
+    } else {
+      result.push(trimmed);
+    }
+  }
+  return result;
+}
+
+function expandEpisodeMemories(images: Memory[]): Memory[] {
+  if (!images) return [];
+  const result: Memory[] = [];
+  images.forEach(img => {
+    const trimmedImgUrl = img.imageUrl?.trim() || '';
+    const trimmedVideoUrl = img.videoUrl?.trim() || '';
+    
+    const isImgMatch = trimmedImgUrl.match(/^(.*?)(\w+?)100(\.[a-zA-Z0-9]+)?$/);
+    const isVidMatch = trimmedVideoUrl.match(/^(.*?)(\w+?)100(\.[a-zA-Z0-9]+)?$/);
+    
+    if (isImgMatch || isVidMatch) {
+      const prefixPath = isImgMatch ? isImgMatch[1] : isVidMatch![1];
+      const baseName = isImgMatch ? isImgMatch[2] : isVidMatch![2];
+      const extImg = isImgMatch ? (isImgMatch[3] || '.jpg') : '.jpg';
+      const extVid = isVidMatch ? (isVidMatch[3] || '.mp4') : '.mp4';
+      
+      for (let i = 1; i <= 100; i++) {
+        const id = `${img.id}-range-${i}`;
+        const itemImgUrl = `${prefixPath}${baseName}${i}${extImg}`;
+        const itemVideoUrl = isVidMatch ? `${prefixPath}${baseName}${i}${extVid}` : undefined;
+        
+        result.push({
+          id,
+          title: `${img.title || 'Moments'} #${i}`,
+          imageUrl: itemImgUrl,
+          videoUrl: itemVideoUrl,
+          description: img.description ? `${img.description} (${i}/100)` : undefined
+        });
+      }
+    } else {
+      result.push(img);
+    }
+  });
+  return result;
+}
 
 export default function App() {
   const [stage, setStage] = useState<AppStage>('profile-selection');
@@ -136,6 +202,25 @@ export default function App() {
     }
   };
 
+  const handleColorThemeChange = async (newColorTheme: string) => {
+    try {
+      await handleUpdateStudioSettings({
+        trailerVideoUrl: studioSettings.trailerVideoUrl,
+        boyfriendProfileImage: studioSettings.boyfriendProfileImage,
+        girlfriendProfileImage: studioSettings.girlfriendProfileImage,
+        usProfileImage: studioSettings.usProfileImage || '',
+        bannerVideos: studioSettings.bannerVideos,
+        boyfriendBannerVideos: studioSettings.boyfriendBannerVideos,
+        girlfriendBannerVideos: studioSettings.girlfriendBannerVideos,
+        usBannerVideos: studioSettings.usBannerVideos || [],
+        backgroundSoundEnabled: studioSettings.backgroundSoundEnabled || false,
+        colorTheme: newColorTheme
+      });
+    } catch (error) {
+      console.error('Error updating color theme:', error);
+    }
+  };
+
   // View & Like Tracking State
   const [userStats, setUserStats] = useState<{ [key: string]: { views: number, likes: number } }>(() => {
     const saved = localStorage.getItem('millifix_stats');
@@ -162,6 +247,7 @@ export default function App() {
   }, []);
 
   const allEpisodes = useMemo(() => {
+    let episodesList: Episode[] = [];
     if (selectedProfile === 'Girlfriend') {
       const merged = [...EPISODES];
       customEpisodes.forEach(customEp => {
@@ -174,14 +260,20 @@ export default function App() {
           }
         }
       });
-      return merged;
+      episodesList = merged;
     } else if (selectedProfile === 'Boyfriend') {
       // Boyfriend: starts fresh (empty). Only matching Boyfriend profile
-      return customEpisodes.filter(e => e.profile === 'Boyfriend');
+      episodesList = customEpisodes.filter(e => e.profile === 'Boyfriend');
     } else {
       // Us Together: starts fresh (blank slate) for media the user uploads
-      return customEpisodes.filter(e => e.profile === 'Us');
+      episodesList = customEpisodes.filter(e => e.profile === 'Us');
     }
+
+    // Dynamic 1 to 100 URL sequence expansion support
+    return episodesList.map(ep => ({
+      ...ep,
+      images: expandEpisodeMemories(ep.images)
+    }));
   }, [customEpisodes, selectedProfile]);
 
   const combinedCategories = useMemo(() => {
@@ -423,10 +515,13 @@ export default function App() {
   const getActiveBackdropUrls = () => {
     const urls = selectedProfile === 'Boyfriend'
       ? studioSettings.boyfriendBannerVideos
-      : studioSettings.girlfriendBannerVideos;
-    if (urls && urls.length > 0) return urls;
-    if (studioSettings.bannerVideos && studioSettings.bannerVideos.length > 0) return studioSettings.bannerVideos;
-    return [];
+      : selectedProfile === 'Us'
+        ? (studioSettings.usBannerVideos || [])
+        : studioSettings.girlfriendBannerVideos;
+    const activeList = (urls && urls.length > 0) 
+      ? urls 
+      : (studioSettings.bannerVideos && studioSettings.bannerVideos.length > 0 ? studioSettings.bannerVideos : []);
+    return expandMediaUrls(activeList);
   };
   const activeBackdrops = getActiveBackdropUrls();
   const hasBg = activeBackdrops.length > 0;
@@ -496,6 +591,8 @@ export default function App() {
               usImage={studioSettings.usProfileImage}
               soundEnabled={studioSettings.backgroundSoundEnabled}
               onToggleSound={handleToggleSound}
+              colorTheme={studioSettings.colorTheme || 'romantic'}
+              onChangeColorTheme={handleColorThemeChange}
             />
             
             <main>
@@ -504,17 +601,19 @@ export default function App() {
                 profile={selectedProfile} 
                 soundEnabled={studioSettings.backgroundSoundEnabled}
                 bannerVideos={
-                  selectedProfile === 'Boyfriend'
-                    ? (studioSettings.boyfriendBannerVideos && studioSettings.boyfriendBannerVideos.length > 0
-                        ? studioSettings.boyfriendBannerVideos
-                        : studioSettings.bannerVideos)
-                    : selectedProfile === 'Us'
-                      ? (studioSettings.usBannerVideos && studioSettings.usBannerVideos.length > 0
-                          ? studioSettings.usBannerVideos
+                  expandMediaUrls(
+                    selectedProfile === 'Boyfriend'
+                      ? (studioSettings.boyfriendBannerVideos && studioSettings.boyfriendBannerVideos.length > 0
+                          ? studioSettings.boyfriendBannerVideos
                           : studioSettings.bannerVideos)
-                      : (studioSettings.girlfriendBannerVideos && studioSettings.girlfriendBannerVideos.length > 0
-                          ? studioSettings.girlfriendBannerVideos
-                          : studioSettings.bannerVideos)
+                      : selectedProfile === 'Us'
+                        ? (studioSettings.usBannerVideos && studioSettings.usBannerVideos.length > 0
+                            ? studioSettings.usBannerVideos
+                            : studioSettings.bannerVideos)
+                        : (studioSettings.girlfriendBannerVideos && studioSettings.girlfriendBannerVideos.length > 0
+                            ? studioSettings.girlfriendBannerVideos
+                            : studioSettings.bannerVideos)
+                  )
                 }
               />
               
@@ -652,7 +751,7 @@ export default function App() {
 
               <WhatToDoTogether currentUserProfile={selectedProfile} />
 
-              <LoveNotesBoard />
+              <LoveNotesBoard currentUserProfile={selectedProfile} />
 
               <LiveLocationTracker 
                 boyfriendImage={studioSettings.boyfriendProfileImage}
@@ -756,7 +855,6 @@ export default function App() {
 
             <BackgroundMusic isVisible={stage === 'home'} />
             <Notification />
-            <CountdownBox onTriggerCelebration={(title, body, name) => setCelebrationEvent({ title, body, name })} />
             <LoveLetter isVisible={stage === 'home'} profile={selectedProfile} />
 
             {/* Admin Media Dashboard Settings Overlay */}

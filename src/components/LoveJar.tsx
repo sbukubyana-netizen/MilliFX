@@ -276,6 +276,8 @@ export default function LoveJar({ currentUserProfile = 'Girlfriend' }: LoveJarPr
           {/* LEFT: Interactive Jar Visual Representation */}
           <div className="col-span-1 md:col-span-12 lg:col-span-5 flex flex-col items-center justify-center space-y-6">
             <motion.div
+              whileHover={{ scale: 1.05, rotate: 1 }}
+              whileTap={{ scale: 0.95, rotate: -2 }}
               animate={isShaking ? {
                 x: [-12, 12, -12, 12, -6, 6, -3, 3, 0],
                 y: [-6, 6, -6, 6, -3, 3, -1, 1, 0],
@@ -291,7 +293,7 @@ export default function LoveJar({ currentUserProfile = 'Girlfriend' }: LoveJarPr
                 repeat: Infinity,
                 ease: 'easeInOut'
               }}
-              className="relative w-48 h-64 md:w-52 md:h-72 cursor-pointer flex flex-col items-center select-none"
+              className="relative w-48 h-64 md:w-52 md:h-72 cursor-pointer flex flex-col items-center select-none touch-manipulation"
               onClick={handleUncork}
               id="interactive-love-jar-graphic"
             >
@@ -431,10 +433,10 @@ export default function LoveJar({ currentUserProfile = 'Girlfriend' }: LoveJarPr
                           key={name}
                           type="button"
                           onClick={() => setSelectedSender(name)}
-                          className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                          className={`px-4 py-2.5 min-h-[44px] min-w-[80px] rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center ${
                             selectedSender === name
                               ? 'bg-pink-500 text-white shadow-md'
-                              : 'bg-zinc-900/50 text-text-dim hover:text-white'
+                              : 'bg-zinc-900/50 text-text-dim hover:text-white border border-white/5'
                           }`}
                         >
                           {name}
@@ -452,7 +454,7 @@ export default function LoveJar({ currentUserProfile = 'Girlfriend' }: LoveJarPr
                       whileTap={{ scale: 0.98 }}
                       type="submit"
                       disabled={!newNoteText.trim()}
-                      className={`py-3 px-5 text-xs font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md ${
+                      className={`py-2.5 px-5 min-h-[44px] text-xs font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md ${
                         newNoteText.trim()
                           ? 'bg-accent text-white hover:bg-accent/90'
                           : 'bg-zinc-800 border border-white/5 text-zinc-500 cursor-not-allowed'
@@ -551,29 +553,82 @@ export default function LoveJar({ currentUserProfile = 'Girlfriend' }: LoveJarPr
           >
             {/* Custom soft-focus canvas layout particles */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
-              {[...Array(25)].map((_, index) => (
+              {/* Soft pink energy dust */}
+              {[...Array(15)].map((_, index) => (
                 <motion.div
-                  key={index}
-                  className="absolute rounded-full bg-pink-500/20 blur-md"
+                  key={`dust-${index}`}
+                  className="absolute rounded-full bg-pink-500/10 blur-xl"
                   style={{
-                    width: `${20 + (index * 4) % 60}px`,
-                    height: `${20 + (index * 4) % 60}px`,
-                    top: `${Math.random() * 100}%`,
-                    left: `${Math.random() * 100}%`,
+                    width: `${50 + (index * 8) % 120}px`,
+                    height: `${50 + (index * 8) % 120}px`,
+                    top: `${(index * 17) % 100}%`,
+                    left: `${(index * 23) % 100}%`,
                   }}
                   animate={{
-                    y: [-100, 100],
-                    x: [-30, 30],
-                    scale: [0.8, 1.4, 0.8],
-                    opacity: [0.2, 0.6, 0.2]
+                    y: [-40, 40],
+                    x: [-20, 20],
+                    scale: [0.9, 1.2, 0.9],
+                    opacity: [0.1, 0.3, 0.1]
                   }}
                   transition={{
-                    duration: 8 + (index % 12),
+                    duration: 10 + (index % 5) * 2,
                     repeat: Infinity,
                     ease: 'easeInOut'
                   }}
                 />
               ))}
+
+              {/* GORGEOUS SOFT-FOCUS FLOATING LOVE LETTERS & ENVELOPES */}
+              {[...Array(20)].map((_, index) => {
+                const noteType = index % 3; // envelope, card, or heart
+                const delay = index * 0.45;
+                const duration = 14 + (index % 8) * 3;
+                const startX = (index * 13) % 95;
+                const size = 36 + (index % 4) * 8; // 36px to 68px
+                const blurClass = index % 3 === 0 ? 'blur-[1.5px]' : index % 3 === 1 ? 'blur-[0.5px]' : 'blur-[2.5px]';
+                const opacity = 0.2 + (index % 4) * 0.08; // 0.2 to 0.52
+                
+                return (
+                  <motion.div
+                    key={`love-note-${index}`}
+                    className={`absolute rounded-xl border border-white/10 bg-white/5 backdrop-blur-xs flex items-center justify-center p-2 shadow-xl ${blurClass}`}
+                    style={{
+                      width: `${size * 1.3}px`,
+                      height: `${size}px`,
+                      left: `${startX}%`,
+                      top: '100%',
+                    }}
+                    animate={{
+                      y: ['0vh', '-130vh'],
+                      x: [0, (index % 2 === 0 ? 60 : -60) * Math.sin(index)],
+                      rotate: [index * 20, index * 20 + (index % 2 === 0 ? 360 : -360)],
+                    }}
+                    transition={{
+                      duration: duration,
+                      repeat: Infinity,
+                      delay: delay,
+                      ease: 'linear',
+                    }}
+                  >
+                    {noteType === 0 ? (
+                      // Beautiful sealed envelope visual
+                      <svg className="w-full h-full text-pink-400/35 fill-current" viewBox="0 0 24 24" style={{ opacity }}>
+                        <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
+                      </svg>
+                    ) : noteType === 1 ? (
+                      // Heart Post-it note visual
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-pink-500/10 rounded-lg border border-pink-500/20" style={{ opacity }}>
+                        <span className="text-sm">💌</span>
+                      </div>
+                    ) : (
+                      // Sealed heart parchment paper
+                      <div className="w-full h-full flex items-center justify-center bg-violet-500/10 rounded-lg border border-violet-500/20" style={{ opacity }}>
+                        <span className="text-base animate-pulse">💖</span>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
             </div>
 
             {/* Glowing cosmic stars */}

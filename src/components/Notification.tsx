@@ -127,6 +127,9 @@ export default function Notification() {
 
   // Trigger delayed entry notification
   useEffect(() => {
+    if (sessionStorage.getItem('daily_note_interacted')) {
+      return;
+    }
     const timer = setTimeout(() => {
       setShow(true);
     }, 10000); // Show after 10 seconds
@@ -142,7 +145,11 @@ export default function Notification() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 350, opacity: 0 }}
             className="fixed bottom-54 right-8 z-[100] bg-card-bg border border-border-subtle p-4 rounded shadow-2xl flex items-center gap-4 cursor-pointer hover:bg-card-bg transition-colors"
-            onClick={() => setIsOpen(true)}
+            onClick={() => {
+              setIsOpen(true);
+              setShow(false);
+              sessionStorage.setItem('daily_note_interacted', 'true');
+            }}
             id="floating-daily-thought-notification"
           >
             <div className="w-10 h-10 bg-accent rounded-sm flex items-center justify-center text-white">
@@ -153,7 +160,11 @@ export default function Notification() {
               <p className="text-text-dim text-[11px]">Click to read your daily note...</p>
             </div>
             <button 
-              onClick={(e) => { e.stopPropagation(); setShow(false); }}
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                setShow(false); 
+                sessionStorage.setItem('daily_note_interacted', 'true');
+              }}
               className="absolute top-2 right-2 text-text-dim hover:text-white"
             >
               <X className="w-3 h-3" />

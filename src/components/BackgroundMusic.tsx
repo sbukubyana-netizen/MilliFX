@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Music } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Music, X } from 'lucide-react';
 
 interface BackgroundMusicProps {
   isVisible: boolean;
@@ -22,6 +22,7 @@ export default function BackgroundMusic({ isVisible }: BackgroundMusicProps) {
   const [volume, setVolume] = useState(0.5);
   const [isMuted, setIsMuted] = useState(false);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   
   // Sync state from SoundtrackVinylPlayer's broadcast channels
   useEffect(() => {
@@ -70,8 +71,28 @@ export default function BackgroundMusic({ isVisible }: BackgroundMusicProps) {
 
   if (!isVisible) return null;
 
+  if (isCollapsed) {
+    return (
+      <motion.button
+        layoutId="music-bar"
+        onClick={() => setIsCollapsed(false)}
+        className="fixed bottom-30 left-6 md:left-12 z-50 w-11 h-11 flex items-center justify-center rounded-full bg-bg-deep/85 border border-accent/30 backdrop-blur-2xl transition-all shadow-2xl hover:border-accent hover:scale-105 cursor-pointer text-accent group"
+        title="Open Music Player"
+      >
+        <Music className="w-4 h-4 animate-pulse group-hover:scale-110 transition-transform" />
+        <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-accent"></span>
+        </span>
+      </motion.button>
+    );
+  }
+
   return (
-    <div className="fixed bottom-30 left-6 md:left-12 z-50 flex items-center gap-4 bg-bg-deep/80 border border-border-subtle p-2 md:px-4 md:py-2 rounded-full backdrop-blur-2xl transition-all shadow-2xl group/music">
+    <motion.div 
+      layoutId="music-bar"
+      className="fixed bottom-30 left-6 md:left-12 z-50 flex items-center gap-4 bg-bg-deep/80 border border-border-subtle p-2 md:px-4 md:py-2 rounded-full backdrop-blur-2xl transition-all shadow-2xl group/music"
+    >
       {/* Visualizer/Status Indicator */}
       <div className="relative w-10 h-10 flex items-center justify-center rounded-full bg-accent/10 border border-accent/20">
         <Music className={`w-4 h-4 text-accent transition-all ${isPlaying ? 'scale-110 opacity-100' : 'opacity-40'}`} />
@@ -156,11 +177,21 @@ export default function BackgroundMusic({ isVisible }: BackgroundMusicProps) {
                   window.dispatchEvent(new CustomEvent('millifix-audio-control', { detail: { action: 'volume', value: val } }));
                 }}
                 className="w-12 h-1 accent-accent cursor-pointer"
+                aria-label="Volume Slider"
               />
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-    </div>
+
+      {/* Elegant Hide Button */}
+      <button
+        onClick={() => setIsCollapsed(true)}
+        className="text-text-dim hover:text-text-main hover:bg-white/5 p-1 rounded-full transition-colors ml-1 cursor-pointer"
+        title="Hide music widget"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </motion.div>
   );
 }

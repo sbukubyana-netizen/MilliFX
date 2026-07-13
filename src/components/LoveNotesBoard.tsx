@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Heart, Plus, Trash2, Edit2, Check, X, Mic, Square, Play, Pause, Volume2, Upload, AlertCircle, Music } from 'lucide-react';
+import { Heart, Plus, Trash2, Edit2, Check, X, Mic, Square, Play, Pause, Volume2, Upload, AlertCircle, Music, Mail } from 'lucide-react';
 import { collection, onSnapshot, setDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 
@@ -193,8 +193,52 @@ function LoveNoteAudioPlayer({ audioUrl, duration }: { audioUrl: string; duratio
 /* ==========================================
    MAIN LOVE NOTES BOARD COMPONENT
    ========================================== */
-export default function LoveNotesBoard() {
+interface LoveNotesBoardProps {
+  currentUserProfile?: 'Girlfriend' | 'Boyfriend' | 'Us';
+}
+
+export default function LoveNotesBoard({ currentUserProfile = 'Us' }: LoveNotesBoardProps) {
   const [notes, setNotes] = useState<StickyNote[]>([]);
+  
+  const handleSendEmailNotification = () => {
+    let recipient = '';
+    let senderName = '';
+    let partnerName = '';
+
+    if (currentUserProfile === 'Girlfriend') {
+      recipient = 'sbu.kubyana@gmail.com';
+      senderName = 'Milli';
+      partnerName = 'Sbu';
+    } else if (currentUserProfile === 'Boyfriend') {
+      recipient = 'phirimillicent44@gmail.com';
+      senderName = 'Sbu';
+      partnerName = 'Milli';
+    } else {
+      // Us Together 🤍: Ask who they want to notify!
+      const notifySbu = window.confirm("Notify Sbu? Click Cancel to notify Milli.");
+      if (notifySbu) {
+        recipient = 'sbu.kubyana@gmail.com';
+        senderName = 'Milli';
+        partnerName = 'Sbu';
+      } else {
+        recipient = 'phirimillicent44@gmail.com';
+        senderName = 'Sbu';
+        partnerName = 'Milli';
+      }
+    }
+
+    const subject = encodeURIComponent(`MilliSbu 🤍 - A sweet new message is waiting for you!`);
+    const body = encodeURIComponent(
+      `Hey ${partnerName} mine, ❤️\n\n` +
+      `I just left a new secret, cute confession or sweet voice memo for you on our "Love Notes Board" in the MilliSbu app! 🤍\n\n` +
+      `Click here to open our digital universe and read it:\n` +
+      `${window.location.origin}\n\n` +
+      `Thinking of you,\n` +
+      `Always yours, ${senderName}`
+    );
+
+    window.open(`mailto:${recipient}?subject=${subject}&body=${body}`, '_blank');
+  };
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
@@ -500,22 +544,35 @@ export default function LoveNotesBoard() {
             </p>
           </div>
 
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              setEditingId(null);
-              setInputText('');
-              setTempAudioBase64(null);
-              setTempAudioDuration(null);
-              setUploadError(null);
-              setIsAdding(true);
-            }}
-            className="flex items-center gap-2 self-start md:self-end bg-accent text-white px-5 py-3 rounded-full font-bold text-xs uppercase tracking-widest hover:opacity-90 contrast-125 transition-all shadow-[0_4px_20px_rgba(255,45,85,0.3)] cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            Pick Sticky Note
-          </motion.button>
+          <div className="flex flex-wrap items-center gap-3 self-start md:self-end">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleSendEmailNotification}
+              className="flex items-center gap-2 bg-white/10 hover:bg-white/15 text-white border border-white/10 px-5 py-3 rounded-full font-bold text-xs uppercase tracking-widest transition-all cursor-pointer shadow-md"
+              title="Notify your partner that you left a new message"
+            >
+              <Mail className="w-4 h-4 text-accent" />
+              <span>Notify Partner</span>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setEditingId(null);
+                setInputText('');
+                setTempAudioBase64(null);
+                setTempAudioDuration(null);
+                setUploadError(null);
+                setIsAdding(true);
+              }}
+              className="flex items-center gap-2 bg-accent text-white px-5 py-3 rounded-full font-bold text-xs uppercase tracking-widest hover:opacity-90 contrast-125 transition-all shadow-[0_4px_20px_rgba(255,45,85,0.3)] cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              Pick Sticky Note
+            </motion.button>
+          </div>
         </div>
 
         {/* Note Grid / Corkboard Backing */}
