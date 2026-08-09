@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Bell, Clock, Sun, Moon, ChevronDown, Settings, Volume2, VolumeX, Sparkles, Download, Menu, X } from 'lucide-react';
+import { Search, Bell, Clock, Sun, Moon, ChevronDown, Settings, Volume2, VolumeX, Sparkles, Download, Menu, X, Sliders } from 'lucide-react';
 import { TARGET_DATE, CATEGORIES } from '../constants';
 import WhatsNewModal from './WhatsNewModal';
 import InstallPromptModal from './InstallPromptModal';
@@ -20,6 +20,7 @@ interface NavbarProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   onOpenAdmin: () => void;
+  onOpenCustomizer?: () => void;
   selectedProfile: 'Girlfriend' | 'Boyfriend' | 'Us';
   onProfileSwitch: (profile: 'Girlfriend' | 'Boyfriend' | 'Us') => void;
   girlfriendImage?: string;
@@ -36,6 +37,7 @@ export default function Navbar({
   searchQuery, 
   setSearchQuery, 
   onOpenAdmin, 
+  onOpenCustomizer,
   selectedProfile, 
   onProfileSwitch, 
   girlfriendImage, 
@@ -210,6 +212,20 @@ export default function Navbar({
       </div>
 
       <div className="hidden md:flex items-center gap-3 md:gap-6">
+        {/* Customize Sections & Animations Trigger */}
+        {onOpenCustomizer && (
+          <div 
+            onClick={onOpenCustomizer}
+            className={`p-2 rounded-full cursor-pointer transition-colors relative group ${
+              theme === 'dark' ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-black/5 text-black hover:bg-black/10'
+            }`}
+            title="Customize Sections & Animations"
+            id="customize-sections-nav-btn"
+          >
+            <Sliders className="w-4 h-4 md:w-5 md:h-5 text-accent hover:scale-110 transition-transform duration-300" />
+          </div>
+        )}
+
         {/* Studio Dashboard Settings Trigger */}
         <div 
           onClick={onOpenAdmin}
@@ -615,14 +631,14 @@ export default function Navbar({
 
             {/* Navigation links inside mobile menu */}
             <div className="w-full border-t border-white/5 pt-4 space-y-2">
-              <span className="text-[9px] font-black uppercase tracking-widest text-accent block px-1">Quick Travel</span>
-              <div className="grid grid-cols-3 gap-2 w-full">
+              <span className="text-[9px] font-black uppercase tracking-widest text-accent block px-1">Quick Travel & Customizer</span>
+              <div className="grid grid-cols-2 gap-2 w-full">
                 <button
                   onClick={() => {
                     scrollToTop();
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`py-2 px-1 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer w-full text-center ${
+                  className={`py-2.5 px-2 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer w-full text-center ${
                     theme === 'dark' ? 'bg-white/5 border-white/5 hover:bg-white/10 text-white' : 'bg-black/5 border-black/5 hover:bg-black/10 text-black'
                   }`}
                 >
@@ -633,7 +649,7 @@ export default function Navbar({
                     scrollToCategory('My Favorite Moments');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`py-2 px-1 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer w-full text-center ${
+                  className={`py-2.5 px-2 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer w-full text-center ${
                     theme === 'dark' ? 'bg-white/5 border-white/5 hover:bg-white/10 text-white' : 'bg-black/5 border-black/5 hover:bg-black/10 text-black'
                   }`}
                 >
@@ -644,12 +660,24 @@ export default function Navbar({
                     scrollToCategory('Our Watchlist (Future Seasons)');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`py-2 px-1 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer w-full text-center ${
+                  className={`py-2.5 px-2 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer w-full text-center ${
                     theme === 'dark' ? 'bg-white/5 border-white/5 hover:bg-white/10 text-white' : 'bg-black/5 border-black/5 hover:bg-black/10 text-black'
                   }`}
                 >
                   Collection
                 </button>
+                {onOpenCustomizer && (
+                  <button
+                    onClick={() => {
+                      onOpenCustomizer();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="py-2.5 px-2 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer w-full text-center bg-accent text-white border-accent/20 flex items-center justify-center gap-1.5 shadow-md"
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>Layout</span>
+                  </button>
+                )}
               </div>
             </div>
 

@@ -276,8 +276,10 @@ export default function WhatToDoTogether({ currentUserProfile = 'Girlfriend' }: 
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, x: -15 }}
-                      className={`py-3.5 flex items-start gap-3 md:gap-4 group/item transition-colors duration-200 ${
-                        item.completed ? 'opacity-60' : ''
+                      className={`py-3.5 px-3 md:px-4 my-1 rounded-xl flex items-start gap-3 md:gap-4 group/item transition-all duration-200 ${
+                        item.completed 
+                          ? 'bg-zinc-900/90 border border-white/5 shadow-inner' 
+                          : 'hover:bg-white/5 border border-transparent'
                       }`}
                     >
                       {/* Left Side: Checkbox trigger */}
@@ -286,7 +288,7 @@ export default function WhatToDoTogether({ currentUserProfile = 'Girlfriend' }: 
                         onClick={() => handleToggleCompleted(item)}
                         className={`flex-shrink-0 mt-0.5 w-6 h-6 rounded-md border flex items-center justify-center cursor-pointer transition-all ${
                           item.completed
-                            ? 'bg-accent/25 border-accent text-accent shadow-[0_0_8px_rgba(255,45,85,0.4)]'
+                            ? 'bg-zinc-800 border-zinc-600 text-zinc-400'
                             : 'border-white/10 hover:border-white/20 bg-black/20 text-transparent hover:text-white/30'
                         }`}
                       >
@@ -327,7 +329,7 @@ export default function WhatToDoTogether({ currentUserProfile = 'Girlfriend' }: 
                             onClick={() => handleToggleCompleted(item)}
                             className={`text-xs md:text-sm font-medium leading-relaxed break-words cursor-pointer select-none ${
                               item.completed
-                                ? 'text-text-muted line-through decoration-accent/60'
+                                ? 'text-zinc-400'
                                 : 'text-white hover:text-accent/80 transition-colors'
                             }`}
                           >

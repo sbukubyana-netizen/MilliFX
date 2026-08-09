@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppStage, EPISODES, RAW_MEMORIES, CATEGORIES, Memory, Episode } from './constants';
 import ProfileSelector from './components/ProfileSelector';
@@ -22,10 +22,9 @@ import CelebrationPortal from './components/CelebrationPortal';
 import LoveLetter from './components/LoveLetter';
 import LoveNotesBoard from './components/LoveNotesBoard';
 import WhatToDoTogether from './components/WhatToDoTogether';
-import LoveJar from './components/LoveJar';
 import SoundtrackVinylPlayer from './components/SoundtrackVinylPlayer';
 import AdminMediaSettings from './components/AdminMediaSettings';
-import LiveLocationTracker from './components/LiveLocationTracker';
+import SectionCustomizerModal, { DEFAULT_SECTIONS, SectionConfig, ScrollAnimationType } from './components/SectionCustomizerModal';
 import AppBackground from './components/AppBackground';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
@@ -102,12 +101,85 @@ function expandEpisodeMemories(images: Memory[]): Memory[] {
   return result;
 }
 
+function AnimatedSection({
+  id,
+  animation,
+  children,
+}: {
+  id: string;
+  animation: ScrollAnimationType;
+  children: ReactNode;
+  key?: React.Key;
+}) {
+  const getVariants = () => {
+    switch (animation) {
+      case 'fade-up':
+        return { initial: { opacity: 0, y: 45 }, whileInView: { opacity: 1, y: 0 } };
+      case 'scale-up':
+        return { initial: { opacity: 0, scale: 0.92 }, whileInView: { opacity: 1, scale: 1 } };
+      case 'slide-left':
+        return { initial: { opacity: 0, x: -60 }, whileInView: { opacity: 1, x: 0 } };
+      case 'slide-right':
+        return { initial: { opacity: 0, x: 60 }, whileInView: { opacity: 1, x: 0 } };
+      case 'bounce':
+        return { initial: { opacity: 0, y: 50, scale: 0.95 }, whileInView: { opacity: 1, y: 0, scale: 1 } };
+      case 'flip-3d':
+        return { initial: { opacity: 0, rotateX: 20, y: 30 }, whileInView: { opacity: 1, rotateX: 0, y: 0 } };
+      case 'none':
+      default:
+        return { initial: { opacity: 1 }, whileInView: { opacity: 1 } };
+    }
+  };
+
+  const v = getVariants();
+
+  return (
+    <motion.div
+      id={id}
+      initial={v.initial}
+      whileInView={v.whileInView}
+      viewport={{ once: true, amount: 0.12 }}
+      transition={{
+        duration: animation === 'bounce' ? 0.75 : 0.55,
+        type: animation === 'bounce' ? 'spring' : 'easeOut',
+        bounce: animation === 'bounce' ? 0.35 : undefined,
+      }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 export default function App() {
   const [stage, setStage] = useState<AppStage>('profile-selection');
   const [selectedProfile, setSelectedProfile] = useState<'Girlfriend' | 'Boyfriend' | 'Us'>(() => {
     const saved = localStorage.getItem('millifix_profile');
     return (saved as 'Girlfriend' | 'Boyfriend' | 'Us') || 'Girlfriend';
   });
+
+  // Layout section customization & scroll animations state
+  const [sections, setSections] = useState<SectionConfig[]>(() => {
+    const saved = localStorage.getItem('millisbu_sections');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        const cleaned = parsed.filter((s: any) => s.id !== 'love_jar' && s.id !== 'live_radar');
+        const existingIds = new Set(cleaned.map((s: any) => s.id));
+        const missing = DEFAULT_SECTIONS.filter((s) => !existingIds.has(s.id));
+        return [...cleaned, ...missing];
+      } catch (e) {
+        console.error('Failed to parse saved sections', e);
+      }
+    }
+    return DEFAULT_SECTIONS;
+  });
+
+  const [scrollAnimation, setScrollAnimation] = useState<ScrollAnimationType>(() => {
+    const saved = localStorage.getItem('millisbu_scroll_anim');
+    return (saved as ScrollAnimationType) || 'fade-up';
+  });
+
+  const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
   const [celebrationEvent, setCelebrationEvent] = useState<{ title: string; body: string; name: string } | null>(null);
   const [selectedMemoryIndex, setSelectedMemoryIndex] = useState<number | null>(null);
   const [currentCollection, setCurrentCollection] = useState<Memory[]>([]);
@@ -595,6 +667,7 @@ export default function App() {
               searchQuery={searchQuery} 
               setSearchQuery={setSearchQuery} 
               onOpenAdmin={() => setIsAdminOpen(true)} 
+              onOpenCustomizer={() => setIsCustomizerOpen(true)}
               selectedProfile={selectedProfile}
               onProfileSwitch={(profile) => {
                 setSelectedProfile(profile);
@@ -610,172 +683,207 @@ export default function App() {
             />
             
             <main>
-              <HeroBanner 
-                onPlayAll={handlePlayAll} 
-                profile={selectedProfile} 
-                soundEnabled={studioSettings.backgroundSoundEnabled}
-                bannerVideos={
-                  expandMediaUrls(
-                    selectedProfile === 'Boyfriend'
-                      ? (studioSettings.boyfriendBannerVideos && studioSettings.boyfriendBannerVideos.length > 0
-                          ? studioSettings.boyfriendBannerVideos
-                          : studioSettings.bannerVideos)
-                      : selectedProfile === 'Us'
-                        ? (studioSettings.usBannerVideos && studioSettings.usBannerVideos.length > 0
-                            ? studioSettings.usBannerVideos
-                            : studioSettings.bannerVideos)
-                        : (studioSettings.girlfriendBannerVideos && studioSettings.girlfriendBannerVideos.length > 0
-                            ? studioSettings.girlfriendBannerVideos
-                            : studioSettings.bannerVideos)
-                  )
-                }
-              />
-              
-              <div className="relative mt-12 md:mt-16 z-20 pb-20">
-                {/* Custom Profile empty state hint for Boyfriend */}
-                {selectedProfile === 'Boyfriend' && allEpisodes.length === 0 && (
-                  <div className="max-w-2xl mx-auto px-6 py-12 mb-12 rounded-2xl bg-zinc-950/70 border border-violet-500/15 text-center space-y-5 shadow-2xl animate-fadeIn">
-                    <div className="w-14 h-14 bg-violet-500/10 rounded-full flex items-center justify-center mx-auto text-violet-400 border border-violet-500/20 shadow-inner text-2xl">
-                      🎬
-                    </div>
-                    <div className="space-y-1.5">
-                      <h3 className="text-xl font-black text-white uppercase tracking-wider">Welcome To Sbu's Cinematic Space</h3>
-                      <p className="text-xs text-text-dim max-w-md mx-auto leading-relaxed">
-                        This workspace starts completely fresh so you can upload your custom photo reels, video clips and captioned slideshows without affecting the Girlfriend timeline settings. Get started by clicking the button below!
-                      </p>
-                    </div>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setIsAdminOpen(true)}
-                      className="px-6 py-3 rounded-lg bg-violet-600 text-white text-xs font-black uppercase tracking-widest hover:bg-violet-500 transition-all shadow-lg shadow-violet-500/25 cursor-pointer"
-                    >
-                      Open Media Production Studio
-                    </motion.button>
-                  </div>
-                )}
+              {sections
+                .filter((sec) => sec.visible)
+                .map((section) => {
+                  switch (section.id) {
+                    case 'hero':
+                      return (
+                        <AnimatedSection key="hero" id="hero-section" animation={scrollAnimation}>
+                          <HeroBanner 
+                            onPlayAll={handlePlayAll} 
+                            profile={selectedProfile} 
+                            soundEnabled={studioSettings.backgroundSoundEnabled}
+                            bannerVideos={
+                              expandMediaUrls(
+                                selectedProfile === 'Boyfriend'
+                                  ? (studioSettings.boyfriendBannerVideos && studioSettings.boyfriendBannerVideos.length > 0
+                                      ? studioSettings.boyfriendBannerVideos
+                                      : studioSettings.bannerVideos)
+                                  : selectedProfile === 'Us'
+                                    ? (studioSettings.usBannerVideos && studioSettings.usBannerVideos.length > 0
+                                        ? studioSettings.usBannerVideos
+                                        : studioSettings.bannerVideos)
+                                    : (studioSettings.girlfriendBannerVideos && studioSettings.girlfriendBannerVideos.length > 0
+                                        ? studioSettings.girlfriendBannerVideos
+                                        : studioSettings.bannerVideos)
+                              )
+                            }
+                          />
+                        </AnimatedSection>
+                      );
 
-                {/* Custom Profile empty state hint for Us */}
-                {selectedProfile === 'Us' && allEpisodes.length === 0 && (
-                  <div className="max-w-2xl mx-auto px-6 py-12 mb-12 rounded-2xl bg-zinc-950/70 border border-pink-500/15 text-center space-y-5 shadow-2xl animate-fadeIn">
-                    <div className="w-14 h-14 bg-pink-500/10 rounded-full flex items-center justify-center mx-auto text-pink-400 border border-pink-500/20 shadow-inner text-2xl animate-pulse">
-                      🤍
-                    </div>
-                    <div className="space-y-1.5">
-                      <h3 className="text-xl font-black text-white uppercase tracking-wider">Welcome To Our Shared Album Space</h3>
-                      <p className="text-xs text-text-dim max-w-md mx-auto leading-relaxed">
-                        This space is for Us together! It starts completely blank so you can upload your favorite photos and videos of Milli and Sbu side-by-side. Get started by clicking the button below!
-                      </p>
-                    </div>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setIsAdminOpen(true)}
-                      className="px-6 py-3 rounded-lg bg-pink-600 text-white text-xs font-black uppercase tracking-widest hover:bg-pink-500 transition-all shadow-lg shadow-pink-500/25 cursor-pointer"
-                    >
-                      Open Media Production Studio
-                    </motion.button>
-                  </div>
-                )}
-                {/* Dynamic Search Results Section */}
-                {searchQuery.trim() !== '' && (
-                  <div className="border border-accent/20 bg-accent/5 backdrop-blur-md rounded-lg mx-6 md:mx-12 p-2 mb-8 animate-fadeIn">
-                    <ContentRow 
-                      id="search-results-row"
-                      title={`Search Results for "${searchQuery}"`}
-                      episodes={filteredEpisodes}
-                      onSelectEpisode={handleSelectEpisode} 
-                    />
-                  </div>
-                )}
+                    case 'categories':
+                      return (
+                        <AnimatedSection key="categories" id="categories-section" animation={scrollAnimation}>
+                          <div className="relative mt-12 md:mt-16 z-20 pb-12">
+                            {/* Custom Profile empty state hint for Boyfriend */}
+                            {selectedProfile === 'Boyfriend' && allEpisodes.length === 0 && (
+                              <div className="max-w-2xl mx-auto px-6 py-12 mb-12 rounded-2xl bg-zinc-950/70 border border-violet-500/15 text-center space-y-5 shadow-2xl animate-fadeIn">
+                                <div className="w-14 h-14 bg-violet-500/10 rounded-full flex items-center justify-center mx-auto text-violet-400 border border-violet-500/20 shadow-inner text-2xl">
+                                  🎬
+                                </div>
+                                <div className="space-y-1.5">
+                                  <h3 className="text-xl font-black text-white uppercase tracking-wider">Welcome To Sbu's Cinematic Space</h3>
+                                  <p className="text-xs text-text-dim max-w-md mx-auto leading-relaxed">
+                                    This workspace starts completely fresh so you can upload your custom photo reels, video clips and captioned slideshows without affecting the Girlfriend timeline settings. Get started by clicking the button below!
+                                  </p>
+                                </div>
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => setIsAdminOpen(true)}
+                                  className="px-6 py-3 rounded-lg bg-violet-600 text-white text-xs font-black uppercase tracking-widest hover:bg-violet-500 transition-all shadow-lg shadow-violet-500/25 cursor-pointer"
+                                >
+                                  Open Media Production Studio
+                                </motion.button>
+                              </div>
+                            )}
 
-                {combinedCategories.map((category) => {
-                  const categoryId = category.toLowerCase().replace(/[^a-z0-9]/g, '-');
-                  if (category === 'Global Top 10 in MilliSbu') {
-                    return (
-                      <Top10Row 
-                        key={category} 
-                        id={categoryId} 
-                        items={dailyTop10} 
-                        userStats={userStats}
-                        onLike={handleLike}
-                        onSelect={(item) => handleSelectMemory(item, RAW_MEMORIES)} 
-                      />
-                    );
-                  }
-                  
-                  const episodes = allEpisodes.filter(ep => ep.category === category);
-                  if (episodes.length === 0) return null;
-                  return (
-                    <ContentRow 
-                      key={category} 
-                      id={categoryId}
-                      title={category} 
-                      episodes={episodes} 
-                      onSelectEpisode={handleSelectEpisode} 
-                    />
-                  );
-                })}
+                            {/* Custom Profile empty state hint for Us */}
+                            {selectedProfile === 'Us' && allEpisodes.length === 0 && (
+                              <div className="max-w-2xl mx-auto px-6 py-12 mb-12 rounded-2xl bg-zinc-950/70 border border-pink-500/15 text-center space-y-5 shadow-2xl animate-fadeIn">
+                                <div className="w-14 h-14 bg-pink-500/10 rounded-full flex items-center justify-center mx-auto text-pink-400 border border-pink-500/20 shadow-inner text-2xl animate-pulse">
+                                  🤍
+                                </div>
+                                <div className="space-y-1.5">
+                                  <h3 className="text-xl font-black text-white uppercase tracking-wider">Welcome To Our Shared Album Space</h3>
+                                  <p className="text-xs text-text-dim max-w-md mx-auto leading-relaxed">
+                                    This space is for Us together! It starts completely blank so you can upload your favorite photos and videos of Milli and Sbu side-by-side. Get started by clicking the button below!
+                                  </p>
+                                </div>
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => setIsAdminOpen(true)}
+                                  className="px-6 py-3 rounded-lg bg-pink-600 text-white text-xs font-black uppercase tracking-widest hover:bg-pink-500 transition-all shadow-lg shadow-pink-500/25 cursor-pointer"
+                                >
+                                  Open Media Production Studio
+                                </motion.button>
+                              </div>
+                            )}
 
-                {/* Dynamic Continue Watching Section */}
-                {continueWatching.length > 0 && (
-                  <div className="py-6 space-y-3" id="continue-watching">
-                    <h3 className="text-lg md:text-xl font-bold px-6 md:px-12 text-text-main">
-                      Continue Watching
-                    </h3>
-                    <div className="px-6 md:px-12 flex gap-4 overflow-x-auto no-scrollbar pb-4">
-                      {continueWatching.map((item) => {
-                        const episode = allEpisodes.find(e => e.id === item.episodeId);
-                        if (!episode) return null;
-                        const progressPercent = Math.round(((item.index + 1) / episode.images.length) * 100);
-                        
-                        return (
-                          <motion.div 
-                            key={item.episodeId}
-                            whileHover={{ scale: 1.05 }}
-                            onClick={() => handleSelectEpisode(episode)}
-                            className="group relative flex-shrink-0 w-64 md:w-80 h-36 md:h-44 rounded shadow-lg overflow-hidden bg-card-bg cursor-pointer border border-white/5"
-                          >
-                            <img 
-                              src={episode.images[item.index]?.imageUrl || episode.previewImageUrl} 
-                              alt={episode.title} 
-                              className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all"
-                              referrerPolicy="no-referrer"
-                            />
-                            <div className="absolute inset-0 bg-linear-to-t from-black via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                              <h4 className="text-white font-bold text-xs mb-0.5">{episode.title} – Slide {item.index + 1}</h4>
-                              <p className="text-text-dim text-[10px] mb-2 font-medium">{episode.images.length - item.index - 1} frames remaining</p>
-                              <div className="w-full h-[3px] bg-zinc-700/50 rounded-full overflow-hidden">
-                                <motion.div 
-                                  initial={{ width: 0 }}
-                                  animate={{ width: `${progressPercent}%` }}
-                                  className="h-full bg-accent shadow-[0_0_8px_var(--color-accent)]" 
+                            {/* Dynamic Search Results Section */}
+                            {searchQuery.trim() !== '' && (
+                              <div className="border border-accent/20 bg-accent/5 backdrop-blur-md rounded-lg mx-6 md:mx-12 p-2 mb-8 animate-fadeIn">
+                                <ContentRow 
+                                  id="search-results-row"
+                                  title={`Search Results for "${searchQuery}"`}
+                                  episodes={filteredEpisodes}
+                                  onSelectEpisode={handleSelectEpisode} 
                                 />
                               </div>
+                            )}
+
+                            {combinedCategories.map((category) => {
+                              const categoryId = category.toLowerCase().replace(/[^a-z0-9]/g, '-');
+                              if (category === 'Global Top 10 in MilliSbu') {
+                                return (
+                                  <Top10Row 
+                                    key={category} 
+                                    id={categoryId} 
+                                    items={dailyTop10} 
+                                    userStats={userStats}
+                                    onLike={handleLike}
+                                    onSelect={(item) => handleSelectMemory(item, RAW_MEMORIES)} 
+                                  />
+                                );
+                              }
+                              
+                              const episodes = allEpisodes.filter(ep => ep.category === category);
+                              if (episodes.length === 0) return null;
+                              return (
+                                <ContentRow 
+                                  key={category} 
+                                  id={categoryId}
+                                  title={category} 
+                                  episodes={episodes} 
+                                  onSelectEpisode={handleSelectEpisode} 
+                                />
+                              );
+                            })}
+                          </div>
+                        </AnimatedSection>
+                      );
+
+                    case 'continue_watching':
+                      if (continueWatching.length === 0) return null;
+                      return (
+                        <AnimatedSection key="continue_watching" id="continue-watching" animation={scrollAnimation}>
+                          <div className="py-6 space-y-3">
+                            <h3 className="text-lg md:text-xl font-bold px-6 md:px-12 text-text-main">
+                              Continue Watching
+                            </h3>
+                            <div className="px-6 md:px-12 flex gap-4 overflow-x-auto no-scrollbar pb-4">
+                              {continueWatching.map((item) => {
+                                const episode = allEpisodes.find(e => e.id === item.episodeId);
+                                if (!episode) return null;
+                                const progressPercent = Math.round(((item.index + 1) / episode.images.length) * 100);
+                                
+                                return (
+                                  <motion.div 
+                                    key={item.episodeId}
+                                    whileHover={{ scale: 1.05 }}
+                                    onClick={() => handleSelectEpisode(episode)}
+                                    className="group relative flex-shrink-0 w-64 md:w-80 h-36 md:h-44 rounded shadow-lg overflow-hidden bg-card-bg cursor-pointer border border-white/5"
+                                  >
+                                    <img 
+                                      src={episode.images[item.index]?.imageUrl || episode.previewImageUrl} 
+                                      alt={episode.title} 
+                                      className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                    <div className="absolute inset-0 bg-linear-to-t from-black via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                                      <h4 className="text-white font-bold text-xs mb-0.5">{episode.title} – Slide {item.index + 1}</h4>
+                                      <p className="text-text-dim text-[10px] mb-2 font-medium">{episode.images.length - item.index - 1} frames remaining</p>
+                                      <div className="w-full h-[3px] bg-zinc-700/50 rounded-full overflow-hidden">
+                                        <motion.div 
+                                          initial={{ width: 0 }}
+                                          animate={{ width: `${progressPercent}%` }}
+                                          className="h-full bg-accent shadow-[0_0_8px_var(--color-accent)]" 
+                                        />
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                );
+                              })}
                             </div>
-                          </motion.div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
+                          </div>
+                        </AnimatedSection>
+                      );
 
-              <LoveJar currentUserProfile={selectedProfile} />
+                    case 'what_to_do':
+                      return (
+                        <AnimatedSection key="what_to_do" id="what-to-do-section" animation={scrollAnimation}>
+                          <WhatToDoTogether currentUserProfile={selectedProfile} />
+                        </AnimatedSection>
+                      );
 
-              <WhatToDoTogether currentUserProfile={selectedProfile} />
+                    case 'love_notes':
+                      return (
+                        <AnimatedSection key="love_notes" id="love-notes-section" animation={scrollAnimation}>
+                          <LoveNotesBoard currentUserProfile={selectedProfile} />
+                        </AnimatedSection>
+                      );
 
-              <LoveNotesBoard currentUserProfile={selectedProfile} />
+                    case 'soundtrack':
+                      return (
+                        <AnimatedSection key="soundtrack" id="soundtrack-section" animation={scrollAnimation}>
+                          <SoundtrackVinylPlayer />
+                        </AnimatedSection>
+                      );
 
-              <LiveLocationTracker 
-                boyfriendImage={studioSettings.boyfriendProfileImage}
-                girlfriendImage={studioSettings.girlfriendProfileImage}
-                currentUserProfile={selectedProfile}
-              />
+                    case 'credits':
+                      return (
+                        <AnimatedSection key="credits" id="credits-section" animation={scrollAnimation}>
+                          <CreditsSection />
+                        </AnimatedSection>
+                      );
 
-              <SoundtrackVinylPlayer />
-
-              <CreditsSection />
+                    default:
+                      return null;
+                  }
+                })}
 
               <footer className="py-20 text-center space-y-6 border-t border-border-subtle bg-card-bg/20 transition-colors">
                 <div className="space-y-1">
@@ -796,6 +904,27 @@ export default function App() {
                 </div>
               </footer>
             </main>
+
+            <SectionCustomizerModal
+              isOpen={isCustomizerOpen}
+              onClose={() => setIsCustomizerOpen(false)}
+              sections={sections}
+              onUpdateSections={(newSecs) => {
+                setSections(newSecs);
+                localStorage.setItem('millisbu_sections', JSON.stringify(newSecs));
+              }}
+              scrollAnimation={scrollAnimation}
+              onUpdateAnimation={(anim) => {
+                setScrollAnimation(anim);
+                localStorage.setItem('millisbu_scroll_anim', anim);
+              }}
+              onReset={() => {
+                setSections(DEFAULT_SECTIONS);
+                setScrollAnimation('fade-up');
+                localStorage.removeItem('millisbu_sections');
+                localStorage.removeItem('millisbu_scroll_anim');
+              }}
+            />
 
             <ImageModal 
               item={selectedMemory} 
