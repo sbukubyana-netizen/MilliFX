@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Bell, Clock, Sun, Moon, ChevronDown, Settings, Volume2, VolumeX, Sparkles, Download, Menu, X, Sliders } from 'lucide-react';
+import { Search, Clock, Sun, Moon, ChevronDown, Settings, Volume2, VolumeX, Sparkles, Download, Menu, X, Sliders, ArrowRight } from 'lucide-react';
 import { TARGET_DATE, CATEGORIES } from '../constants';
-import WhatsNewModal from './WhatsNewModal';
+import WhatsNewModal, { APP_UPDATES, UpdateItem } from './WhatsNewModal';
 import InstallPromptModal from './InstallPromptModal';
 
 const NAVBAR_THEMES = [
@@ -51,13 +51,25 @@ export default function Navbar({
   const [isScrolled, setIsScrolled] = useState(false);
   const [showBrowseMenu, setShowBrowseMenu] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, mins: 0, secs: 0 });
   const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Sync Search Query with App Updates live
+  const matchingUpdates = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase().trim();
+    return APP_UPDATES.filter(u => 
+      u.title.toLowerCase().includes(q) || 
+      u.desc.toLowerCase().includes(q) || 
+      u.tag.toLowerCase().includes(q)
+    );
+  }, [searchQuery]);
 
   useEffect(() => {
     const handleBeforeInstall = (e: Event) => {
@@ -203,7 +215,7 @@ export default function Navbar({
             Favorites
           </li>
           <li 
-            onClick={() => scrollToCategory('Our Watchlist (Future Seasons)')}
+            onClick={() => scrollToCategory('Her Smile Collection 😍')}
             className="hover:text-accent cursor-pointer transition-colors whitespace-nowrap"
           >
             Collection
@@ -237,36 +249,139 @@ export default function Navbar({
           <Settings className="w-4 h-4 md:w-5 md:h-5 text-accent hover:scale-110 hover:rotate-45 transition-all duration-300" />
         </div>
 
-        {/* Search */}
-        <div className="relative flex items-center">
+        {/* Search with Live Sync to New Updates */}
+        <div className="relative flex items-center" id="navbar-search-container">
           <AnimatePresence>
             {isSearchOpen && (
-              <motion.input
+              <motion.div
                 initial={{ width: 0, opacity: 0 }}
-                animate={{ width: window.innerWidth < 640 ? 90 : 180, opacity: 1 }}
+                animate={{ width: window.innerWidth < 640 ? 110 : 210, opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={`bg-card-bg border border-border-subtle rounded px-2 py-1 text-[11px] focus:outline-none focus:border-accent text-text-main transition-all ${
-                  theme === 'dark' ? 'bg-white/5' : 'bg-black/5'
-                }`}
-                autoFocus
-                onBlur={() => {
-                  if (!searchQuery) setIsSearchOpen(false);
-                }}
-              />
+                className="relative"
+              >
+                <input
+                  ref={searchInputRef}
+                  placeholder="Search moments, music, updates..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setIsSearchDropdownOpen(true);
+                  }}
+                  onFocus={() => setIsSearchDropdownOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && searchQuery.trim()) {
+                      const target = document.getElementById('search-results-row') || document.getElementById('episodes-categories-section');
+                      if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        setIsSearchDropdownOpen(false);
+                      }
+                    }
+                  }}
+                  className={`w-full bg-card-bg border border-border-subtle rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-accent text-text-main transition-all ${
+                    theme === 'dark' ? 'bg-white/5' : 'bg-black/5'
+                  }`}
+                  autoFocus
+                />
+              </motion.div>
             )}
           </AnimatePresence>
           <Search 
             onClick={() => {
-              setIsSearchOpen(!isSearchOpen);
-              if (isSearchOpen) {
-                setSearchQuery('');
+              if (!isSearchOpen) {
+                setIsSearchOpen(true);
+                setIsSearchDropdownOpen(true);
+                setTimeout(() => searchInputRef.current?.focus(), 60);
+              } else if (searchQuery.trim()) {
+                const target = document.getElementById('search-results-row') || document.getElementById('episodes-categories-section');
+                if (target) {
+                  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  setIsSearchDropdownOpen(false);
+                }
+              } else {
+                setIsSearchOpen(false);
+                setIsSearchDropdownOpen(false);
               }
             }}
-            className={`w-4 h-4 md:w-5 md:h-5 cursor-pointer ml-1.5 ${theme === 'dark' ? 'text-text-dim hover:text-white' : 'text-zinc-600 hover:text-black'}`} 
+            title="Search moments & sync with new updates"
+            className={`w-4 h-4 md:w-5 md:h-5 cursor-pointer ml-2 transition-transform hover:scale-110 ${theme === 'dark' ? 'text-text-dim hover:text-white' : 'text-zinc-600 hover:text-black'}`} 
           />
+
+          {/* Real-time Search Sync with New Updates Dropdown */}
+          <AnimatePresence>
+            {isSearchOpen && isSearchDropdownOpen && searchQuery.trim().length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                className={`absolute top-full right-0 mt-3 p-3.5 rounded-2xl shadow-2xl border min-w-[310px] sm:min-w-[340px] z-[200] backdrop-blur-xl ${
+                  theme === 'dark' ? 'bg-zinc-950/95 border-white/10 text-white' : 'bg-white/95 border-black/10 text-zinc-900'
+                }`}
+              >
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-accent flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Search Synced with Updates</span>
+                  </span>
+                  <button 
+                    onClick={() => setIsSearchDropdownOpen(false)}
+                    className="text-zinc-400 hover:text-white text-xs p-1 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Matching New Updates */}
+                {matchingUpdates.length > 0 ? (
+                  <div className="space-y-2 mb-3">
+                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-1">
+                      Matching New Updates ({matchingUpdates.length})
+                    </div>
+                    {matchingUpdates.slice(0, 3).map((up, uIdx) => (
+                      <div
+                        key={uIdx}
+                        onClick={() => {
+                          setIsWhatsNewOpen(true);
+                          setIsSearchDropdownOpen(false);
+                        }}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-accent/15 border border-white/5 hover:border-accent/30 transition-all cursor-pointer flex items-start gap-2.5 group"
+                      >
+                        <div className="p-1 rounded-lg bg-accent/20 text-accent shrink-0 mt-0.5">
+                          {up.icon}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold truncate group-hover:text-accent transition-colors">
+                            {up.title}
+                          </p>
+                          <p className="text-[10px] text-zinc-400 line-clamp-1 mt-0.5">
+                            {up.desc}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-zinc-400 italic px-1 py-1 mb-2">
+                    No changelog updates match "{searchQuery}"
+                  </div>
+                )}
+
+                {/* Jump to Moments & Media in App */}
+                <button
+                  onClick={() => {
+                    const target = document.getElementById('search-results-row') || document.getElementById('episodes-categories-section');
+                    if (target) {
+                      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      setIsSearchDropdownOpen(false);
+                    }
+                  }}
+                  className="w-full py-2 px-3 rounded-xl bg-accent text-white font-bold text-xs flex items-center justify-between hover:bg-accent/90 transition-colors shadow-sm cursor-pointer"
+                >
+                  <span>Jump to Moments Search</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* What's New / Updates Sparkles Trigger */}
@@ -292,62 +407,6 @@ export default function Navbar({
           id="download-app-nav-btn"
         >
           <Download className="w-4 h-4 md:w-5 md:h-5 text-accent" />
-        </div>
-
-        {/* Notifications */}
-        <div className="relative">
-          <Bell 
-            onClick={() => setShowNotifications(!showNotifications)}
-            className={`w-4 h-4 md:w-5 md:h-5 cursor-pointer ${theme === 'dark' ? 'text-text-dim hover:text-white' : 'text-zinc-600 hover:text-black'}`} 
-          />
-          <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-accent rounded-full border border-bg-deep shadow-[0_0_5px_var(--color-accent)]" />
-          
-          <AnimatePresence>
-            {showNotifications && (
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className={`absolute top-full right-0 mt-4 p-4 rounded-lg shadow-2xl border min-w-[290px] z-50 ${
-                  theme === 'dark' ? 'bg-zinc-900 border-white/10' : 'bg-white border-black/10'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-4 pb-2 border-b border-border-subtle">
-                  <span className="text-xs font-bold uppercase tracking-widest text-text-main">Notifications</span>
-                  <span className="text-[10px] text-accent font-bold uppercase">2 NEW</span>
-                </div>
-                <div className="space-y-3.5">
-                  <div className="flex gap-3 items-start group cursor-pointer">
-                    <div className="w-8 h-8 rounded bg-accent/20 flex items-center justify-center text-accent flex-shrink-0">
-                      🤍
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-bold text-text-main leading-tight">Milli, you have a new memory review!</p>
-                      <p className="text-[10px] text-text-dim mt-1">"The Story of Us" just hit 98% critical acclaim.</p>
-                      <p className="text-[9px] text-accent mt-2 font-bold uppercase">2 minutes ago</p>
-                    </div>
-                  </div>
-
-                  <div 
-                    onClick={() => {
-                      setShowNotifications(false);
-                      setIsWhatsNewOpen(true);
-                    }}
-                    className="flex gap-3 items-start group cursor-pointer pt-3.5 border-t border-white/5 hover:opacity-80 transition-opacity"
-                  >
-                    <div className="w-8 h-8 rounded bg-pink-500/20 flex items-center justify-center text-pink-500 flex-shrink-0 animate-bounce">
-                      🚀
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-bold text-text-main leading-tight text-white group-hover:text-accent transition-colors">MilliSbu Version 2.4 Update Live!</p>
-                      <p className="text-[10px] text-text-dim mt-1">Multiple Countdowns, Celebration portal & Auto-size trailers.</p>
-                      <p className="text-[9px] text-[#ff2d55] mt-1.5 font-bold uppercase">Just now</p>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
         
         <div className="hidden lg:flex flex-col items-end gap-0.5 px-3 border-r border-border-subtle mr-2">
@@ -486,16 +545,35 @@ export default function Navbar({
             id="mobile-navigation-dropdown-menu"
           >
             {/* Search Input */}
-            <div className="relative w-full flex items-center">
-              <Search className="absolute left-3 w-4 h-4 text-text-dim" />
-              <input
-                placeholder="Search cinematic moments..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full pl-10 pr-4 py-2.5 text-xs border border-border-subtle rounded-xl focus:outline-none focus:border-accent text-text-main transition-colors ${
-                  theme === 'dark' ? 'bg-white/5' : 'bg-black/5'
-                }`}
-              />
+            <div className="relative w-full flex flex-col gap-1.5">
+              <div className="relative w-full flex items-center">
+                <Search className="absolute left-3 w-4 h-4 text-text-dim" />
+                <input
+                  placeholder="Search cinematic moments & updates..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={`w-full pl-10 pr-4 py-2.5 text-xs border border-border-subtle rounded-xl focus:outline-none focus:border-accent text-text-main transition-colors ${
+                    theme === 'dark' ? 'bg-white/5' : 'bg-black/5'
+                  }`}
+                />
+              </div>
+
+              {/* Mobile Matching Updates quick pill */}
+              {matchingUpdates.length > 0 && (
+                <div 
+                  onClick={() => {
+                    setIsWhatsNewOpen(true);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-accent/15 border border-accent/30 text-accent flex items-center justify-between text-[11px] font-bold cursor-pointer"
+                >
+                  <span className="flex items-center gap-1.5 truncate">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{matchingUpdates.length} update{matchingUpdates.length > 1 ? 's' : ''} match "{searchQuery}"</span>
+                  </span>
+                  <span className="text-[10px] uppercase underline shrink-0">View</span>
+                </div>
+              )}
             </div>
 
             {/* Quick Actions Bento-style adaptive grid */}
@@ -562,40 +640,6 @@ export default function Navbar({
               </button>
             </div>
 
-            {/* Notifications panel in menu block, styled if active */}
-            {showNotifications && (
-              <div className={`p-4 rounded-xl border w-full text-left space-y-3.5 ${
-                theme === 'dark' ? 'bg-black/40 border-white/5' : 'bg-black/5 border-black/5'
-              }`}>
-                <div className="flex items-center justify-between pb-1.5 border-b border-white/5">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-text-main">Selected Notifications</span>
-                  <span className="text-[8px] text-accent font-extrabold uppercase bg-accent/10 px-1.5 py-0.5 rounded">2 New</span>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex gap-2 items-start">
-                    <span className="text-xs shrink-0 pt-0.5">🤍</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold text-text-main leading-tight">Milli, you have a new memory review!</p>
-                      <p className="text-[9px] text-text-dim leading-snug mt-0.5">"The Story of Us" just hit 98% critical acclaim.</p>
-                    </div>
-                  </div>
-                  <div 
-                    onClick={() => {
-                      setIsWhatsNewOpen(true);
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="flex gap-2 items-start cursor-pointer hover:opacity-85"
-                  >
-                    <span className="text-xs shrink-0 pt-0.5 animate-bounce">🚀</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold text-text-main leading-tight text-white">MilliSbu Version 2.4 Update Live!</p>
-                      <p className="text-[9px] text-text-dim leading-snug mt-0.5">Multiple Countdowns, Celebration portal & Auto-size trailers.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Color Palette & Themes inside mobile menu */}
             <div className="w-full border-t border-white/5 pt-4 space-y-3">
               <div className="space-y-1 px-1 text-left">
@@ -657,7 +701,7 @@ export default function Navbar({
                 </button>
                 <button
                   onClick={() => {
-                    scrollToCategory('Our Watchlist (Future Seasons)');
+                    scrollToCategory('Her Smile Collection 😍');
                     setIsMobileMenuOpen(false);
                   }}
                   className={`py-2.5 px-2 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer w-full text-center ${

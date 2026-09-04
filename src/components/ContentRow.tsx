@@ -44,6 +44,8 @@ const EpisodeCard: React.FC<{ episode: Episode; onClick: () => void }> = ({ epis
         <img
           src={episode.previewImageUrl}
           alt={episode.title}
+          loading="lazy"
+          decoding="async"
           className="absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-110"
           referrerPolicy="no-referrer"
         />

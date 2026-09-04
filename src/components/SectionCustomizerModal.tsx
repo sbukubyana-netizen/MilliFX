@@ -18,8 +18,8 @@ export const DEFAULT_SECTIONS: SectionConfig[] = [
   { id: 'continue_watching', name: 'Continue Watching', description: 'Pick up where you left off in your slide deck', visible: true, icon: '⏱️' },
   { id: 'what_to_do', name: 'What To Do Together', description: 'Interactive couple bucket list & date night ideas', visible: true, icon: '📝' },
   { id: 'love_notes', name: 'Love Notes Board', description: 'Sticky notes, compliments, and romantic letters', visible: true, icon: '💌' },
-  { id: 'soundtrack', name: 'Soundtrack & Vinyl Player', description: 'Personalized song dedications and vinyl player', visible: true, icon: '🎵' },
-  { id: 'credits', name: 'Credits & Production Team', description: 'Special acknowledgments & director credits', visible: true, icon: '🌟' },
+  { id: 'dedications', name: 'Track & Media Dedications', description: 'Spotify & YouTube links, voice note memos, and romantic letters', visible: true, icon: '🎵' },
+  { id: 'credits', name: 'Credits & Production Team', description: 'Cinematic Hollywood movie rolling credits & awards', visible: true, icon: '🌟' },
 ];
 
 export const ANIMATION_OPTIONS: { id: ScrollAnimationType; label: string; desc: string; icon: string }[] = [
@@ -168,7 +168,10 @@ export default function SectionCustomizerModal({
               </div>
 
               <div className="space-y-2">
-                {sections.map((sec, idx) => (
+                {sections.map((sec, idx) => {
+                  const displayName = sec.id === 'soundtrack' || sec.id === 'dedications' ? 'Track & Media Dedications' : sec.name;
+                  const displayDesc = sec.id === 'soundtrack' || sec.id === 'dedications' ? 'Spotify & YouTube links, voice note memos, and romantic letters' : sec.description;
+                  return (
                   <div
                     key={sec.id}
                     className={`p-3 sm:p-4 rounded-2xl border flex items-center justify-between gap-3 transition-all ${
@@ -181,14 +184,14 @@ export default function SectionCustomizerModal({
                       <span className="text-xl shrink-0">{sec.icon}</span>
                       <div className="min-w-0">
                         <p className="text-xs font-black tracking-wide flex items-center gap-2">
-                          <span>{sec.name}</span>
+                          <span>{displayName}</span>
                           {!sec.visible && (
                             <span className="text-[9px] uppercase font-bold text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded">
                               Hidden
                             </span>
                           )}
                         </p>
-                        <p className="text-[10px] text-zinc-400 truncate">{sec.description}</p>
+                        <p className="text-[10px] text-zinc-400 truncate">{displayDesc}</p>
                       </div>
                     </div>
 
@@ -230,7 +233,8 @@ export default function SectionCustomizerModal({
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

@@ -21,6 +21,14 @@ export interface Episode {
   profile?: 'Girlfriend' | 'Boyfriend' | 'Us';
 }
 
+export interface CustomCategory {
+  id: string;
+  name: string;
+  profile?: 'Girlfriend' | 'Boyfriend' | 'Us' | 'All';
+  createdAt: string;
+  order?: number;
+}
+
 export type AppStage = 'profile-selection' | 'trailer' | 'home' | 'countdown';
 
 export const getTimeOfDay = () => {
@@ -209,25 +217,7 @@ export const EPISODES: Episode[] = [
       { id: 'vid-3', title: 'Sunday Mornings', imageUrl: 'images/44.jpg', videoUrl: 'videos/3.mp4', description: 'Original Video Clip' },
       ...RAW_MEMORIES.slice(44, 52)
     ]
-  },
-
-  // Future Watchlist (2 Episodes)
-  {
-    id: 'fut-1',
-    title: 'Soweto Derby',
-    description: 'Coming Soon • TBA',
-    category: 'Future Watchlist',
-    previewImageUrl: 'images/103.jpeg',
-    images: []
-  },
-  {
-    id: 'fut-2',
-    title: 'WWE',
-    description: 'Coming Soon • TBA',
-    category: 'Future Watchlist',
-    previewImageUrl: 'images/cover.png',
-    images: [] // User mentioned 104.png to 107.png as covers of episodes, but "no memories created yet"
-  },
+  }
 ];
 
 export const CATEGORIES = [
@@ -235,7 +225,6 @@ export const CATEGORIES = [
   'My Favorite Moments',
   'Her Smile Collection 😍',
   'Can’t Stop Looking at You',
-  'Future Watchlist',
   'Continue Watching'
 ];
 

@@ -23,51 +23,103 @@ export default function BackgroundMusic({ isVisible }: BackgroundMusicProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  
-  // Sync state from SoundtrackVinylPlayer's broadcast channels
-  useEffect(() => {
-    const handleState = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      const { isPlaying, currentTrackIndex, volume: vinylVolume, playlist: vinylPlaylist } = customEvent.detail || {};
-      
-      if (isPlaying !== undefined) setIsPlaying(isPlaying);
-      if (currentTrackIndex !== undefined) setCurrentTrackIndex(currentTrackIndex);
-      if (vinylVolume !== undefined) {
-        setVolume(vinylVolume);
-        if (vinylVolume > 0) setIsMuted(false);
-      }
-      if (vinylPlaylist !== undefined) setPlaylist(vinylPlaylist);
-    };
-
-    window.addEventListener('millifix-audio-state', handleState);
-    
-    // Proactively request current state in case vinyl is already mounted
-    window.dispatchEvent(new CustomEvent('millifix-audio-control', { detail: { action: 'request-state' } }));
-
-    return () => {
-      window.removeEventListener('millifix-audio-state', handleState);
-    };
-  }, []);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const currentTrack = playlist[currentTrackIndex] || playlist[0] || PLAYLIST[0];
 
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = isMuted ? 0 : volume;
+    }
+  }, [volume, isMuted]);
+
   const togglePlay = () => {
-    window.dispatchEvent(new CustomEvent('millifix-audio-control', { detail: { action: 'toggle' } }));
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play().then(() => {
+        setIsPlaying(true);
+      }).catch((e) => {
+        console.log("Autoplay blocked or waiting user gesture", e);
+      });
+    }
   };
 
   const nextTrack = () => {
-    window.dispatchEvent(new CustomEvent('millifix-audio-control', { detail: { action: 'next' } }));
+    const nextIdx = (currentTrackIndex + 1) % playlist.length;
+    setCurrentTrackIndex(nextIdx);
+    if (audioRef.current) {
+      audioRef.current.src = playlist[nextIdx]?.url || PLAYLIST[0].url;
+      if (isPlaying) {
+        audioRef.current.play().catch(() => {});
+      }
+    }
   };
 
   const prevTrack = () => {
-    window.dispatchEvent(new CustomEvent('millifix-audio-control', { detail: { action: 'prev' } }));
+    const prevIdx = (currentTrackIndex - 1 + playlist.length) % playlist.length;
+    setCurrentTrackIndex(prevIdx);
+    if (audioRef.current) {
+      audioRef.current.src = playlist[prevIdx]?.url || PLAYLIST[0].url;
+      if (isPlaying) {
+        audioRef.current.play().catch(() => {});
+      }
+    }
   };
 
   const toggleMute = () => {
     const nextMuted = !isMuted;
     setIsMuted(nextMuted);
-    window.dispatchEvent(new CustomEvent('millifix-audio-control', { detail: { action: 'volume', value: nextMuted ? 0 : volume } }));
+    if (audioRef.current) {
+      audioRef.current.volume = nextMuted ? 0 : volume;
+    }
   };
+
+  // Listen to remote controls sent by the navbar or external buttons
+  useEffect(() => {
+    const handleRemoteControl = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const { action, value } = customEvent.detail || {};
+
+      switch (action) {
+        case 'toggle':
+          togglePlay();
+          break;
+        case 'play':
+          if (audioRef.current && !isPlaying) {
+            audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+          }
+          break;
+        case 'pause':
+          if (audioRef.current && isPlaying) {
+            audioRef.current.pause();
+            setIsPlaying(false);
+          }
+          break;
+        case 'next':
+          nextTrack();
+          break;
+        case 'prev':
+          prevTrack();
+          break;
+        case 'volume':
+          if (typeof value === 'number') {
+            setVolume(value);
+            if (audioRef.current) {
+              audioRef.current.volume = value;
+            }
+          }
+          break;
+      }
+    };
+
+    window.addEventListener('millifix-audio-control', handleRemoteControl);
+    return () => {
+      window.removeEventListener('millifix-audio-control', handleRemoteControl);
+    };
+  }, [isPlaying, currentTrackIndex, volume, playlist]);
 
   if (!isVisible) return null;
 
@@ -192,6 +244,14 @@ export default function BackgroundMusic({ isVisible }: BackgroundMusicProps) {
       >
         <X className="w-3.5 h-3.5" />
       </button>
+
+      {/* Embedded HTML5 Audio element */}
+      <audio
+        ref={audioRef}
+        src={currentTrack.url}
+        onEnded={nextTrack}
+        preload="auto"
+      />
     </motion.div>
   );
 }

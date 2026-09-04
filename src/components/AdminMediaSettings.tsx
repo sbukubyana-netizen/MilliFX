@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Plus, Trash2, Video, Image as ImageIcon, Settings, Sparkles, Check, HelpCircle, Upload, Film, Edit, RefreshCw, User, Play, Pause } from 'lucide-react';
+import { X, Plus, Trash2, Video, Image as ImageIcon, Settings, Sparkles, Check, HelpCircle, Upload, Film, Edit, RefreshCw, User, Play, Pause, Zap, HardDrive, CheckCircle2, FolderPlus, Folder, Tag, Layers, Edit3, Clapperboard } from 'lucide-react';
 import { collection, setDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, sanitizeFirestoreData } from '../firebase';
-import { Episode, Memory, CATEGORIES } from '../constants';
+import { Episode, Memory, CATEGORIES, CustomCategory } from '../constants';
+import { purgeAllCacheData, CachePurgeResult } from '../utils/cacheManager';
+import AdminCreditsSettings from './AdminCreditsSettings';
 
 interface AdminMediaSettingsProps {
   isOpen: boolean;
@@ -11,6 +13,7 @@ interface AdminMediaSettingsProps {
   onSuccess: (message: string) => void;
   allEpisodes: Episode[];
   selectedProfile: 'Girlfriend' | 'Boyfriend' | 'Us';
+  initialTab?: 'create' | 'edit' | 'categories' | 'daily_notes' | 'studio_config' | 'cache_speed' | 'credits_config';
   studioSettings: {
     trailerVideoUrl: string;
     boyfriendProfileImage: string;
@@ -201,13 +204,196 @@ export default function AdminMediaSettings({
   onSuccess, 
   allEpisodes, 
   selectedProfile,
+  initialTab,
   studioSettings,
   onUpdateStudioSettings
 }: AdminMediaSettingsProps) {
   // Current Active Menu Section/Tab
-  const [activeTab, setActiveTab] = useState<'create' | 'edit' | 'daily_notes' | 'studio_config'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'edit' | 'categories' | 'daily_notes' | 'studio_config' | 'cache_speed' | 'credits_config'>(initialTab || 'create');
   const [isSaving, setIsSaving] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
+    const handler = () => setActiveTab('credits_config');
+    window.addEventListener('open_admin_credits_settings', handler);
+    return () => window.removeEventListener('open_admin_credits_settings', handler);
+  }, []);
+
+  // Real-time custom categories from Firestore
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'custom_categories'), (snapshot) => {
+      const list: CustomCategory[] = [];
+      snapshot.forEach(d => {
+        list.push({ id: d.id, ...d.data() } as CustomCategory);
+      });
+      setCustomCategories(list);
+    }, (err) => {
+      console.error('Error listening to custom_categories in Admin:', err);
+    });
+    return () => unsub();
+  }, []);
+
+  // Compute all available categories for creation, editing and management
+  const allAvailableCategories = useMemo(() => {
+    const base = CATEGORIES.filter(c => 
+      c !== 'Global Top 10 in MilliSbu' && 
+      c !== 'Continue Watching' && 
+      c.toLowerCase() !== 'future watchlist' &&
+      c !== 'Our Watchlist (Future Seasons)'
+    );
+    const created = customCategories.map(c => c.name.trim()).filter(Boolean);
+    const fromEpisodes = allEpisodes
+      .map(ep => ep.category?.trim())
+      .filter(c => 
+        Boolean(c) && 
+        c !== 'Global Top 10 in MilliSbu' && 
+        c !== 'Continue Watching' && 
+        c.toLowerCase() !== 'future watchlist' &&
+        c !== 'Our Watchlist (Future Seasons)'
+      );
+    return Array.from(new Set<string>([...base, ...created, ...fromEpisodes]));
+  }, [customCategories, allEpisodes]);
+
+  // Categories Manager State
+  const [newCatNameInput, setNewCatNameInput] = useState('');
+  const [newCatProfile, setNewCatProfile] = useState<'Girlfriend' | 'Boyfriend' | 'Us' | 'All'>('All');
+  const [editingCatDocId, setEditingCatDocId] = useState<string | null>(null);
+  const [editingCatOriginalName, setEditingCatOriginalName] = useState('');
+  const [editingCatNameValue, setEditingCatNameValue] = useState('');
+
+  // Handler to create category directly in settings
+  const handleCreateCategoryDirect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = newCatNameInput.trim();
+    if (!clean) return;
+
+    if (allAvailableCategories.some(c => c.toLowerCase() === clean.toLowerCase())) {
+      alert(`Category "${clean}" already exists!`);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const catId = 'cat_' + Date.now();
+      const newCat: CustomCategory = {
+        id: catId,
+        name: clean,
+        profile: newCatProfile,
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'custom_categories', catId), sanitizeFirestoreData(newCat));
+      setNewCatNameInput('');
+      onSuccess(`Category "${clean}" created and synced across the app!`);
+    } catch (err) {
+      console.error('Error creating category:', err);
+      handleFirestoreError(err, OperationType.WRITE, 'custom_categories');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Handler to rename a category and update any custom episodes using it
+  const handleRenameCategory = async (oldName: string, newName: string, catDocId?: string) => {
+    const cleanNew = newName.trim();
+    if (!cleanNew || cleanNew === oldName) {
+      setEditingCatDocId(null);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      if (catDocId) {
+        const existingCat = customCategories.find(c => c.id === catDocId);
+        await setDoc(doc(db, 'custom_categories', catDocId), sanitizeFirestoreData({
+          id: catDocId,
+          name: cleanNew,
+          profile: existingCat?.profile || 'All',
+          createdAt: existingCat?.createdAt || new Date().toISOString()
+        }));
+      } else {
+        const catId = 'cat_' + Date.now();
+        await setDoc(doc(db, 'custom_categories', catId), sanitizeFirestoreData({
+          id: catId,
+          name: cleanNew,
+          profile: 'All',
+          createdAt: new Date().toISOString()
+        }));
+      }
+
+      // Update matching custom_episodes
+      const matching = allEpisodes.filter(ep => ep.category === oldName);
+      let updatedCount = 0;
+      for (const ep of matching) {
+        try {
+          await setDoc(doc(db, 'custom_episodes', ep.id), sanitizeFirestoreData({
+            ...ep,
+            category: cleanNew
+          }));
+          updatedCount++;
+        } catch (epErr) {
+          console.warn('Error syncing category on episode', ep.id, epErr);
+        }
+      }
+
+      setEditingCatDocId(null);
+      setEditingCatOriginalName('');
+      setEditingCatNameValue('');
+      onSuccess(`Category renamed to "${cleanNew}"! ${updatedCount > 0 ? `Synced ${updatedCount} episode card${updatedCount !== 1 ? 's' : ''} in cloud.` : ''}`);
+    } catch (err) {
+      console.error('Error renaming category:', err);
+      handleFirestoreError(err, OperationType.WRITE, 'custom_categories');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Handler to delete a category
+  const handleDeleteCategory = async (catName: string, catDocId?: string) => {
+    const matching = allEpisodes.filter(ep => ep.category === catName);
+    const confirmMsg = matching.length > 0
+      ? `Are you sure you want to remove category "${catName}"? Note: ${matching.length} episode card(s) are currently in this row.`
+      : `Are you sure you want to remove category "${catName}"?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setIsSaving(true);
+    try {
+      if (catDocId) {
+        await deleteDoc(doc(db, 'custom_categories', catDocId));
+      }
+      onSuccess(`Category "${catName}" removed from custom categories.`);
+    } catch (err) {
+      console.error('Error deleting category:', err);
+      handleFirestoreError(err, OperationType.DELETE, `custom_categories/${catDocId}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Cache purge state
+  const [isPurgingCache, setIsPurgingCache] = useState(false);
+  const [purgeResult, setPurgeResult] = useState<CachePurgeResult | null>(null);
+
+  const handlePurgeAllCaches = async () => {
+    setIsPurgingCache(true);
+    try {
+      const result = await purgeAllCacheData();
+      setPurgeResult(result);
+      onSuccess("Cache data removed successfully! The app will now open and load faster.");
+    } catch (err) {
+      console.error('Failed to purge cache data:', err);
+      alert('Failed to clear cache data completely.');
+    } finally {
+      setIsPurgingCache(false);
+    }
+  };
 
   // Backdrop preview visibility states
   const [showGirlfriendBackdropPreview, setShowGirlfriendBackdropPreview] = useState(false);
@@ -699,6 +885,21 @@ export default function AdminMediaSettings({
     try {
       await setDoc(doc(db, 'custom_episodes', newId), sanitizeFirestoreData(newEpisode));
       
+      // If a new custom category was typed, persist and sync it into custom_categories
+      if (categoryType === 'new' && newCategoryName.trim()) {
+        const cleanCat = newCategoryName.trim();
+        const existing = customCategories.find(c => c.name.toLowerCase() === cleanCat.toLowerCase());
+        if (!existing) {
+          const catId = 'cat_' + Date.now();
+          await setDoc(doc(db, 'custom_categories', catId), sanitizeFirestoreData({
+            id: catId,
+            name: cleanCat,
+            profile: selectedProfile,
+            createdAt: new Date().toISOString()
+          }));
+        }
+      }
+
       // Record Undo Action
       setHistoryStack(prev => [...prev, { type: 'create', episode: newEpisode }]);
 
@@ -749,6 +950,18 @@ export default function AdminMediaSettings({
     try {
       await setDoc(doc(db, 'custom_episodes', selectedEpisodeId), sanitizeFirestoreData(updatedEpisode));
       
+      // If the edited category isn't a base preset or saved category, sync it into custom_categories
+      const cleanCat = editCategory.trim();
+      if (cleanCat && !customCategories.some(c => c.name.toLowerCase() === cleanCat.toLowerCase()) && !CATEGORIES.includes(cleanCat)) {
+        const catId = 'cat_' + Date.now();
+        await setDoc(doc(db, 'custom_categories', catId), sanitizeFirestoreData({
+          id: catId,
+          name: cleanCat,
+          profile: selectedProfile,
+          createdAt: new Date().toISOString()
+        }));
+      }
+
       // Record Undo Action
       if (oldEpisode) {
         setHistoryStack(prev => [...prev, { type: 'update', episode: updatedEpisode, prevEpisode: { ...oldEpisode } }]);
@@ -951,6 +1164,14 @@ export default function AdminMediaSettings({
             </button>
             <button
               type="button"
+              onClick={() => setActiveTab('categories')}
+              className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'categories' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+            >
+              <FolderPlus className="w-4 h-4" />
+              Categories
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab('daily_notes')}
               className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'daily_notes' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
             >
@@ -963,6 +1184,22 @@ export default function AdminMediaSettings({
             >
               <Settings className="w-4 h-4" />
               Studio Config
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('cache_speed')}
+              className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'cache_speed' ? 'bg-amber-500 text-zinc-950 font-black shadow-lg shadow-amber-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+            >
+              <Zap className="w-4 h-4 text-amber-400" />
+              Speed & Cache
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('credits_config')}
+              className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'credits_config' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+            >
+              <Clapperboard className="w-4 h-4" />
+              Movie Credits & BG
             </button>
           </div>
 
@@ -1031,15 +1268,26 @@ export default function AdminMediaSettings({
                       </div>
 
                       {categoryType === 'existing' ? (
-                        <select
-                          value={selectedCategory}
-                          onChange={(e) => setSelectedCategory(e.target.value)}
-                          className="w-full bg-zinc-950 border border-white/10 p-2 rounded text-xs focus:ring-1 focus:ring-accent outline-none text-zinc-300"
-                        >
-                          {CATEGORIES.filter(c => c !== 'Global Top 10 in MilliSbu' && c !== 'Continue Watching').map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
-                        </select>
+                        <div className="space-y-1">
+                          <select
+                            value={selectedCategory}
+                            onChange={(e) => setSelectedCategory(e.target.value)}
+                            className="w-full bg-zinc-950 border border-white/10 p-2 rounded text-xs focus:ring-1 focus:ring-accent outline-none text-zinc-300"
+                          >
+                            {allAvailableCategories.map(cat => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                          </select>
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('categories')}
+                              className="text-[10px] text-accent hover:underline flex items-center gap-1 font-bold pt-0.5 cursor-pointer"
+                            >
+                              <FolderPlus className="w-3 h-3" /> Manage all categories →
+                            </button>
+                          </div>
+                        </div>
                       ) : (
                         <input
                           type="text"
@@ -1386,15 +1634,27 @@ export default function AdminMediaSettings({
 
                         {/* Category */}
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Edit Row Category Location</label>
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Edit Row Category Location</label>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('categories')}
+                              className="text-[10px] text-accent hover:underline flex items-center gap-1 font-bold cursor-pointer"
+                            >
+                              <FolderPlus className="w-3 h-3" /> Manage Categories →
+                            </button>
+                          </div>
                           <select
                             value={editCategory}
                             onChange={(e) => setEditCategory(e.target.value)}
                             className="w-full bg-zinc-950 border border-white/10 p-2 rounded text-xs focus:border-accent outline-none text-zinc-300"
                           >
-                            {CATEGORIES.filter(c => c !== 'Global Top 10 in MilliSbu' && c !== 'Continue Watching').map(cat => (
+                            {allAvailableCategories.map(cat => (
                               <option key={cat} value={cat}>{cat}</option>
                             ))}
+                            {editCategory && !allAvailableCategories.includes(editCategory) && (
+                              <option value={editCategory}>{editCategory} (Custom)</option>
+                            )}
                           </select>
                         </div>
                       </div>
@@ -1619,6 +1879,234 @@ export default function AdminMediaSettings({
                   <p className="text-xs text-zinc-400 font-medium max-w-xs">Choose any active card row from the interactive dropdown list above to modify covers, captions, or add up to 300 slides of media!</p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB: CATEGORIES MANAGER & EDITING */}
+          {activeTab === 'categories' && (
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start animate-fadeIn" id="categories-tab-container">
+              {/* Left Column: Create New Category */}
+              <div className="md:col-span-5 space-y-4">
+                <form onSubmit={handleCreateCategoryDirect} className="p-5 bg-white/5 rounded-xl border border-white/5 space-y-4">
+                  <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-accent flex items-center gap-1.5">
+                      <FolderPlus className="w-3.5 h-3.5" /> Create New Category
+                    </h3>
+                    <span className="text-[9px] bg-accent/20 text-accent font-black uppercase tracking-wider px-2 py-0.5 rounded">
+                      Live Cloud Sync
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    Create new row categories for your episodes and memories. They will sync instantly to Firestore and appear in your homepage rows and settings.
+                  </p>
+
+                  {/* Category Name */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">
+                      Category Title
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Unforgettable Road Trips 🚗"
+                      value={newCatNameInput}
+                      onChange={(e) => setNewCatNameInput(e.target.value)}
+                      className="w-full bg-zinc-950 border border-white/10 p-2.5 rounded-lg text-xs focus:border-accent outline-none text-white font-medium placeholder:text-zinc-600"
+                      required
+                    />
+                  </div>
+
+                  {/* Profile target */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">
+                      Target Workspace Profile
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['All', 'Girlfriend', 'Boyfriend', 'Us'] as const).map((prof) => (
+                        <button
+                          key={prof}
+                          type="button"
+                          onClick={() => setNewCatProfile(prof)}
+                          className={`py-2 px-3 text-[10px] font-bold rounded-lg border transition-all cursor-pointer text-left ${
+                            newCatProfile === prof
+                              ? 'bg-accent/15 border-accent text-accent shadow-sm'
+                              : 'bg-zinc-950/60 border-white/5 text-zinc-400 hover:text-white hover:border-white/15'
+                          }`}
+                        >
+                          <span className="block font-black">
+                            {prof === 'All' ? '🌐 All Profiles' : prof === 'Girlfriend' ? '👸 Milli Only' : prof === 'Boyfriend' ? '🤴 Sbu Only' : '🤍 Us Together'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    disabled={isSaving || !newCatNameInput.trim()}
+                    className="w-full py-3 bg-accent text-white hover:opacity-95 disabled:opacity-50 flex items-center justify-center gap-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-accent/20 cursor-pointer"
+                  >
+                    <FolderPlus className="w-4 h-4" />
+                    {isSaving ? 'Syncing to Cloud...' : 'Add & Sync Category'}
+                  </button>
+                </form>
+
+                {/* Helpful Guide Box */}
+                <div className="p-4 bg-zinc-950/50 rounded-xl border border-white/5 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-zinc-300">
+                    <span>💡</span> Automatic Cloud Syncing
+                  </div>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    When you create a category here, it immediately becomes available across all profile workspaces. You can rename it anytime, and all cards assigned to it will update automatically!
+                  </p>
+                </div>
+              </div>
+
+              {/* Right Column: Manage & Edit Existing Categories */}
+              <div className="md:col-span-7 space-y-4">
+                <div className="p-5 bg-zinc-950/60 rounded-xl border border-white/5 space-y-4">
+                  <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-zinc-300 flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-accent" /> Manage App Categories
+                    </h3>
+                    <span className="text-[9px] bg-white/5 text-zinc-400 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      {allAvailableCategories.length} Categories
+                    </span>
+                  </div>
+
+                  {allAvailableCategories.length === 0 ? (
+                    <div className="py-12 text-center text-zinc-500">
+                      <Folder className="w-8 h-8 mx-auto mb-2 opacity-40 text-zinc-500" />
+                      <p className="text-[11px] font-bold uppercase tracking-wider">No categories found.</p>
+                      <p className="text-[10px] text-zinc-600 mt-1">Create your first custom category on the left to organize your cinematic memories!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
+                      {allAvailableCategories.map((catName) => {
+                        const customDoc = customCategories.find(c => c.name.toLowerCase() === catName.toLowerCase());
+                        const isCustom = Boolean(customDoc);
+                        const cardCount = allEpisodes.filter(ep => ep.category?.trim().toLowerCase() === catName.toLowerCase()).length;
+                        const isEditing = editingCatOriginalName === catName;
+
+                        return (
+                          <div
+                            key={catName}
+                            className={`p-3.5 rounded-xl border transition-all ${
+                              isEditing
+                                ? 'bg-zinc-900 border-accent shadow-md shadow-accent/10'
+                                : 'bg-zinc-900/90 border-white/5 hover:border-white/20'
+                            }`}
+                          >
+                            {isEditing ? (
+                              /* Inline Rename Editor */
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-accent flex items-center gap-1">
+                                    <Edit3 className="w-3 h-3" /> Renaming Category
+                                  </span>
+                                  <span className="text-[9px] text-zinc-400">
+                                    Will update {cardCount} associated episode card{cardCount !== 1 ? 's' : ''}
+                                  </span>
+                                </div>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    value={editingCatNameValue}
+                                    onChange={(e) => setEditingCatNameValue(e.target.value)}
+                                    className="flex-1 bg-zinc-950 border border-white/15 p-2 rounded-lg text-xs text-white font-medium focus:border-accent outline-none"
+                                    autoFocus
+                                    placeholder="Enter new category name..."
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={isSaving || !editingCatNameValue.trim()}
+                                    onClick={() => handleRenameCategory(catName, editingCatNameValue, customDoc?.id)}
+                                    className="px-3 py-2 bg-accent text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:opacity-90 disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Check className="w-3.5 h-3.5" /> Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingCatOriginalName('');
+                                      setEditingCatDocId(null);
+                                      setEditingCatNameValue('');
+                                    }}
+                                    className="px-2.5 py-2 bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white rounded-lg text-xs transition-all cursor-pointer"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              /* Category Display Row */
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                    isCustom ? 'bg-accent/10 text-accent border border-accent/20' : 'bg-white/5 text-zinc-400 border border-white/10'
+                                  }`}>
+                                    <Folder className="w-4 h-4" />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <h4 className="text-xs font-bold text-white truncate">{catName}</h4>
+                                      {isCustom ? (
+                                        <span className="text-[9px] bg-emerald-500/15 text-emerald-400 font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-emerald-500/20">
+                                          Custom
+                                        </span>
+                                      ) : (
+                                        <span className="text-[9px] bg-white/5 text-zinc-400 font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border border-white/5">
+                                          Preset
+                                        </span>
+                                      )}
+                                      {customDoc?.profile && customDoc.profile !== 'All' && (
+                                        <span className="text-[9px] bg-violet-500/15 text-violet-400 font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-violet-500/20">
+                                          {customDoc.profile}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-[10px] text-zinc-400 block mt-0.5">
+                                      {cardCount} episode card{cardCount !== 1 ? 's' : ''} in this category
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingCatOriginalName(catName);
+                                      setEditingCatDocId(customDoc?.id || null);
+                                      setEditingCatNameValue(catName);
+                                    }}
+                                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-white/5 hover:border-white/15 transition-all text-xs font-bold flex items-center gap-1 cursor-pointer"
+                                    title="Rename category and sync across all cards"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline text-[10px] uppercase tracking-wider">Rename</span>
+                                  </button>
+
+                                  {isCustom && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteCategory(catName, customDoc?.id)}
+                                      className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/20 transition-all cursor-pointer"
+                                      title="Delete category"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
@@ -2281,6 +2769,123 @@ export default function AdminMediaSettings({
                 </button>
               </div>
             </form>
+          )}
+
+          {/* ======================================================== */}
+          {/* TAB 5: SPEED & CACHE PURGE                               */}
+          {/* ======================================================== */}
+          {activeTab === 'cache_speed' && (
+            <div className="space-y-6 animate-fadeIn py-2">
+              <div className="bg-zinc-950/70 p-6 rounded-2xl border border-white/5 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+                  <div className="space-y-1">
+                    <h3 className="text-base font-black uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                      <Zap className="w-5 h-5 fill-current" />
+                      App Load Accelerator & Cache Purge
+                    </h3>
+                    <p className="text-xs text-zinc-400">
+                      Remove bloated browser cache, stale service workers, and disk persistence data so the app opens instantly on any device.
+                    </p>
+                  </div>
+                  <div className="shrink-0 flex items-center gap-2">
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full font-black uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                      Direct Network Active
+                    </span>
+                  </div>
+                </div>
+
+                {/* Diagnostics Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-zinc-900/60 p-4 rounded-xl border border-white/5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Cache Storage</span>
+                      <HardDrive className="w-4 h-4 text-amber-400" />
+                    </div>
+                    <div className="text-sm font-black text-white">Purged on Boot</div>
+                    <p className="text-[10px] text-zinc-500">Stale JS/CSS bundles and heavy media chunks are cleared</p>
+                  </div>
+
+                  <div className="bg-zinc-900/60 p-4 rounded-xl border border-white/5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Service Worker</span>
+                      <Zap className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <div className="text-sm font-black text-white">Direct Network</div>
+                    <p className="text-[10px] text-zinc-500">Zero proxy stalls or offline caching delays</p>
+                  </div>
+
+                  <div className="bg-zinc-900/60 p-4 rounded-xl border border-white/5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Firestore DB</span>
+                      <Sparkles className="w-4 h-4 text-sky-400" />
+                    </div>
+                    <div className="text-sm font-black text-white">Memory Local Cache</div>
+                    <p className="text-[10px] text-zinc-500">Bypasses slow disk IndexedDB reads on startup</p>
+                  </div>
+
+                  <div className="bg-zinc-900/60 p-4 rounded-xl border border-white/5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">App Storage</span>
+                      <CheckCircle2 className="w-4 h-4 text-purple-400" />
+                    </div>
+                    <div className="text-sm font-black text-white">Optimized & Trimmed</div>
+                    <p className="text-[10px] text-zinc-500">Temporary reload loops and bloated history pruned</p>
+                  </div>
+                </div>
+
+                {/* Purge Result Notification */}
+                {purgeResult && (
+                  <div className="bg-emerald-950/40 border border-emerald-500/30 p-4 rounded-xl space-y-2 animate-fadeIn">
+                    <div className="flex items-center gap-2 text-emerald-400 text-xs font-black uppercase tracking-wider">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Cache Purged Successfully!
+                    </div>
+                    <p className="text-xs text-zinc-300">
+                      Cleared {purgeResult.cachesCleared} cache partitions, unregistered {purgeResult.serviceWorkersUnregistered} service workers, and pruned local storage.
+                    </p>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={isPurgingCache}
+                    onClick={handlePurgeAllCaches}
+                    className="w-full sm:w-auto px-6 py-3 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer disabled:opacity-50"
+                  >
+                    {isPurgingCache ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Purging Cache...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        Purge All Cache & Boost Load Speed Now
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="w-full sm:w-auto px-5 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all border border-white/5 cursor-pointer"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Reload App Cleanly
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* TAB 7: MOVIE CREDITS & BACKGROUND MEDIA                   */}
+          {/* ======================================================== */}
+          {activeTab === 'credits_config' && (
+            <AdminCreditsSettings onSuccess={onSuccess} />
           )}
 
         </div>

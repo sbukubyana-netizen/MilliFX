@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { AppStage, EPISODES, RAW_MEMORIES, CATEGORIES, Memory, Episode } from './constants';
+import { AppStage, EPISODES, RAW_MEMORIES, CATEGORIES, Memory, Episode, CustomCategory } from './constants';
 import ProfileSelector from './components/ProfileSelector';
 import TrailerPlayer from './components/TrailerPlayer';
 import Navbar from './components/Navbar';
@@ -22,7 +22,7 @@ import CelebrationPortal from './components/CelebrationPortal';
 import LoveLetter from './components/LoveLetter';
 import LoveNotesBoard from './components/LoveNotesBoard';
 import WhatToDoTogether from './components/WhatToDoTogether';
-import SoundtrackVinylPlayer from './components/SoundtrackVinylPlayer';
+import TrackDedications from './components/TrackDedications';
 import AdminMediaSettings from './components/AdminMediaSettings';
 import SectionCustomizerModal, { DEFAULT_SECTIONS, SectionConfig, ScrollAnimationType } from './components/SectionCustomizerModal';
 import AppBackground from './components/AppBackground';
@@ -205,6 +205,7 @@ export default function App() {
   const [customEpisodes, setCustomEpisodes] = useState<Episode[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [adminInitialTab, setAdminInitialTab] = useState<'create' | 'edit' | 'categories' | 'daily_notes' | 'studio_config' | 'cache_speed' | 'credits_config'>('create');
   const [adminSuccessMessage, setAdminSuccessMessage] = useState<string | null>(null);
 
   const [studioSettings, setStudioSettings] = useState<{
@@ -332,6 +333,21 @@ export default function App() {
     return () => unsub();
   }, []);
 
+  // Real-time custom categories synced from Firestore
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'custom_categories'), (snapshot) => {
+      const list: CustomCategory[] = [];
+      snapshot.forEach((d) => {
+        list.push({ id: d.id, ...d.data() } as CustomCategory);
+      });
+      setCustomCategories(list);
+    }, (error) => {
+      console.error('Error fetching custom categories:', error);
+    });
+    return () => unsub();
+  }, []);
+
   const allEpisodes = useMemo(() => {
     let episodesList: Episode[] = [];
     if (selectedProfile === 'Girlfriend') {
@@ -363,29 +379,45 @@ export default function App() {
   }, [customEpisodes, selectedProfile]);
 
   const combinedCategories = useMemo(() => {
+    // 1. Categories directly created in settings / custom_categories
+    const activeCreatedCats = customCategories
+      .filter(c => !c.profile || c.profile === 'All' || c.profile === selectedProfile)
+      .map(c => c.name.trim())
+      .filter(Boolean);
+
+    // 2. Categories on custom episodes for this profile
     const activeCustom = selectedProfile === 'Girlfriend'
       ? customEpisodes.filter(ep => !ep.profile || ep.profile === 'Girlfriend')
       : selectedProfile === 'Boyfriend'
         ? customEpisodes.filter(ep => ep.profile === 'Boyfriend')
         : customEpisodes.filter(ep => ep.profile === 'Us');
 
-    const customCats: string[] = activeCustom.map(ep => ep.category);
-    const uniqueCustomCats: string[] = Array.from(new Set<string>(customCats.filter(c => !(CATEGORIES as string[]).includes(c))));
+    const episodeCats: string[] = activeCustom.map(ep => ep.category?.trim()).filter(Boolean);
+
+    // Combine and unique all custom categories
+    const allCustomNames = Array.from(new Set<string>([...activeCreatedCats, ...episodeCats]));
+    const uniqueCustomCats = allCustomNames.filter(
+      c => !(CATEGORIES as string[]).includes(c) && 
+           c.toLowerCase() !== 'future watchlist' && 
+           c !== 'Our Watchlist (Future Seasons)'
+    );
     
     if (selectedProfile === 'Boyfriend' || selectedProfile === 'Us') {
-      // For Boyfriend and Us, just give custom categories + future watchlist
-      return [...uniqueCustomCats, 'Our Watchlist (Future Seasons)'];
+      return uniqueCustomCats;
     }
 
-    const result: string[] = [...CATEGORIES];
-    const futureIndex = result.indexOf('Our Watchlist (Future Seasons)');
-    if (futureIndex !== -1) {
-      result.splice(futureIndex, 0, ...uniqueCustomCats);
+    const result: string[] = (CATEGORIES as string[]).filter(
+      c => c.toLowerCase() !== 'future watchlist' && c !== 'Our Watchlist (Future Seasons)'
+    );
+
+    const continueIndex = result.indexOf('Continue Watching');
+    if (continueIndex !== -1) {
+      result.splice(continueIndex, 0, ...uniqueCustomCats);
     } else {
       result.push(...uniqueCustomCats);
     }
     return result;
-  }, [customEpisodes, selectedProfile]);
+  }, [customEpisodes, customCategories, selectedProfile]);
 
   // Dynamic Search Filtering
   const filteredEpisodes = useMemo(() => {
@@ -866,17 +898,21 @@ export default function App() {
                         </AnimatedSection>
                       );
 
+                    case 'dedications':
                     case 'soundtrack':
                       return (
-                        <AnimatedSection key="soundtrack" id="soundtrack-section" animation={scrollAnimation}>
-                          <SoundtrackVinylPlayer />
+                        <AnimatedSection key="dedications" id="track-dedications-section" animation={scrollAnimation}>
+                          <TrackDedications currentUserProfile={selectedProfile} />
                         </AnimatedSection>
                       );
 
                     case 'credits':
                       return (
                         <AnimatedSection key="credits" id="credits-section" animation={scrollAnimation}>
-                          <CreditsSection />
+                          <CreditsSection onOpenSettings={(tab) => {
+                            if (tab) setAdminInitialTab(tab as any);
+                            setIsAdminOpen(true);
+                          }} />
                         </AnimatedSection>
                       );
 
@@ -1008,6 +1044,7 @@ export default function App() {
                   onClose={() => setIsAdminOpen(false)} 
                   allEpisodes={allEpisodes}
                   selectedProfile={selectedProfile}
+                  initialTab={adminInitialTab}
                   onSuccess={(msg) => {
                     setAdminSuccessMessage(msg);
                     setTimeout(() => setAdminSuccessMessage(null), 5000);
@@ -1105,11 +1142,6 @@ export default function App() {
           right: 10%;
           height: 1px;
           background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-        }
-        #future-watchlist {
-          padding-top: 2rem;
-          padding-bottom: 4rem;
-          background: linear-gradient(to right, transparent, rgba(var(--color-accent-rgb), 0.03), transparent);
         }
         #continue-watching {
           padding-top: 2rem;

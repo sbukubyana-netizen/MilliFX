@@ -17,8 +17,8 @@
       "required": ["id", "sender", "color", "createdAt", "tilt"]
     },
     "song_dedication": {
-      "title": "Song Dedication",
-      "description": "Heartfelt song dedication left on the soundtrack vinyl player dashboard",
+      "title": "Song & Media Dedication",
+      "description": "Heartfelt media & song dedication accepting Spotify/YouTube links, voice note recordings, or love letters",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -27,7 +27,13 @@
         "to": { "type": "string" },
         "message": { "type": "string" },
         "timestamp": { "type": "string" },
-        "sticker": { "type": "string", "enum": ["heart", "star", "rose", "fire"] }
+        "sticker": { "type": "string" },
+        "type": { "type": "string", "enum": ["link", "voice", "text"] },
+        "linkUrl": { "type": "string" },
+        "thumbnailUrl": { "type": "string" },
+        "audioData": { "type": "string" },
+        "audioDuration": { "type": "number" },
+        "mediaPlatform": { "type": "string", "enum": ["youtube", "spotify", "other"] }
       },
       "required": ["id", "songTitle", "from", "to", "message", "timestamp", "sticker"]
     },
@@ -139,6 +145,53 @@
         "recipient": { "type": "string" }
       },
       "required": ["id", "text", "sender", "createdAt", "opened"]
+    },
+    "custom_category": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "profile": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["id", "name", "createdAt"]
+    },
+    "credits_config": {
+      "title": "Credits Configuration",
+      "description": "Customizable credits cast, categories, and background video or image",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "bgType": { "type": "string", "enum": ["none", "video", "image"] },
+        "bgMediaUrl": { "type": "string" },
+        "bgOpacity": { "type": "number" },
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "quote": { "type": "string" },
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "category": { "type": "string" },
+              "entries": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "role": { "type": "string" },
+                    "name": { "type": "string" },
+                    "note": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "updatedAt"]
     }
   },
   "firestore": {
@@ -173,6 +226,14 @@
     "love_jar_notes": {
       "schema": "love_jar_note",
       "description": "Custom secret messages dropped inside the digital corked jar to shake and uncork once every 24 hours"
+    },
+    "custom_categories": {
+      "schema": "custom_category",
+      "description": "User-created categories for organizing media rows that sync across the app and settings"
+    },
+    "credits_config": {
+      "schema": "credits_config",
+      "description": "Custom credits information, cast entries, and background media settings"
     }
   }
 }

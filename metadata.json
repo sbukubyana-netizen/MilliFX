@@ -1,7 +1,9 @@
 {
   "name": "MilliFix",
   "description": "A private, cinematic streaming-style memory website celebrating Millicent. Featuring photo collections, a personal trailer, a romantic countdown, and live multi-device synchronized love notes and song dedications.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": [
+    "microphone"
+  ],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]

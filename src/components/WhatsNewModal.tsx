@@ -1,52 +1,66 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Sparkles, Tv, MapPin, Calendar, Volume2, Flame, Heart, Film } from 'lucide-react';
+import { X, Sparkles, Tv, MapPin, Calendar, Volume2, Flame, Heart, Film, Radio, Mic, Clapperboard, Music } from 'lucide-react';
 
 interface WhatsNewModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-interface UpdateItem {
+export interface UpdateItem {
   icon: React.ReactNode;
   tag: string;
   title: string;
   desc: string;
 }
 
+export const APP_UPDATES: UpdateItem[] = [
+  {
+    icon: <Clapperboard className="w-5 h-5 text-amber-400" />,
+    tag: "Cinema Studio",
+    title: "Customizable Movie Credits & Ambient Video/Image Backgrounds",
+    desc: "Fully configure the Hollywood movie end credits inside Settings! Add custom categories, edit cast and crew roles, update the romantic closing quote, and choose background media (custom video loops or high-res photos) with live opacity controls."
+  },
+  {
+    icon: <Radio className="w-5 h-5 text-accent" />,
+    tag: "Soundstage",
+    title: "Track Dedications Quick-Inserter & Auto-Thumbnails",
+    desc: "Accepts Spotify & YouTube links, voice memo recordings, and love letters. Clicking any card opens directly in Spotify or YouTube with auto-detected high-res thumbnails and dynamic cloud persistence."
+  },
+  {
+    icon: <Sparkles className="w-5 h-5 text-pink-400" />,
+    tag: "Navbar",
+    title: "Live-Synced Updates Search & Streamlined Header",
+    desc: "The search bar in the top navigation is now fully synced with all new releases and moments. Removed unnecessary notifications icon for an ultra-clean, distraction-free cinema aesthetic."
+  },
+  {
+    icon: <Mic className="w-5 h-5 text-emerald-400" />,
+    tag: "Voice Notes",
+    title: "Microphone Voice Memo Recordings & Player",
+    desc: "Record live voice notes with real-time waveform visualizers, elapsed timers, and instant playback previews. Synchronized live in the cloud for your partner to listen to anytime."
+  },
+  {
+    icon: <Tv className="w-5 h-5 text-accent" />,
+    tag: "Mini Player",
+    title: "Floatable Mini Player with Live Border Resize",
+    desc: "Switch the active video frame into a beautiful, picture-in-picture floatable modal. Drag it anywhere around the screen using its top/bottom handles, or resize its width/height dynamically by dragging on either of the side borders!"
+  },
+  {
+    icon: <Film className="w-5 h-5 text-violet-400" />,
+    tag: "Studio",
+    title: "Commas-Separated Multiple Media Backdrops",
+    desc: "Easily input multiple, customizable background loops (supporting video links, direct images, or YouTube URLs) as a simple comma-separated list! Includes multi-file drag-and-drop support and automatic smart client-side photo compression."
+  },
+  {
+    icon: <Calendar className="w-5 h-5 text-emerald-400" />,
+    tag: "Timeline",
+    title: "Multiple Milestone Countdown Tracker",
+    desc: "Enables partners to monitor separate count timelines simultaneously: our official Anniversary (Jan 18), Sbu's Birthday (Jan 26), and Milli's Birthday (July 8). Switch active timelines instantly from the dashboard."
+  }
+];
+
 export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
-  const updates: UpdateItem[] = [
-    {
-      icon: <Tv className="w-5 h-5 text-accent" />,
-      tag: "Mini Player",
-      title: "Floatable Mini Player with Live Border Resize",
-      desc: "Switch the active video frame into a beautiful, picture-in-picture floatable modal. Drag it anywhere around the screen using its top/bottom handles, or resize its width/height dynamically by dragging on either of the side borders!"
-    },
-    {
-      icon: <Sparkles className="w-5 h-5 text-pink-500" />,
-      tag: "Design",
-      title: "Pristine Cinema Control Bar & Clean Layout",
-      desc: "Cleaned up cluttered themes and layout overrides. Now, the main theatre mode and control options are beautifully nested above the screen, keeping the movie backdrops entirely pristine, deep-focused, and premium."
-    },
-    {
-      icon: <Film className="w-5 h-5 text-violet-400" />,
-      tag: "Studio",
-      title: "Commas-Separated Multiple Media Backdrops",
-      desc: "Easily input multiple, customizable background loops (supporting video links, direct images, or YouTube URLs) as a simple comma-separated list! Includes multi-file drag-and-drop support and automatic smart client-side photo compression."
-    },
-    {
-      icon: <Calendar className="w-5 h-5 text-emerald-400" />,
-      tag: "Timeline",
-      title: "Multiple Milestone Countdown Tracker",
-      desc: "Enables partners to monitor separate count timelines simultaneously: our official Anniversary (Jan 18), Sbu's Birthday (Jan 26), and Milli's Birthday (July 8). Switch active timelines instantly from the dashboard."
-    },
-    {
-      icon: <Volume2 className="w-5 h-5 text-amber-400" />,
-      tag: "Atmosphere",
-      title: "Celebrations & Background Audio",
-      desc: "Trigger high-contrast emoji explosions, gorgeous declarations, and ambient video soundtracks with design-first sound toggles immediately synchronized across all your devices."
-    }
-  ];
+  const updates = APP_UPDATES;
 
   if (!isOpen) return null;
 
@@ -86,7 +100,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
           <div className="p-6 pb-2">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/20 border border-accent/30 text-[10px] font-black uppercase tracking-widest text-accent mb-3">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Version 2.4 Update Live</span>
+              <span>Version 2.5 Update Live</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight">
               What's New in MilliSbu? 🎬

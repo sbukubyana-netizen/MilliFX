@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Check, Plus, Trash2, Edit2, Sparkles, AlertCircle, Heart, Star, CheckSquare, Square, Calendar, X } from 'lucide-react';
+import { Check, Plus, Trash2, Edit2, Sparkles, AlertCircle, Heart, Star, CheckSquare, Square, Calendar, X, ArrowUpDown, ChevronDown, CheckCircle2 } from 'lucide-react';
 import { collection, onSnapshot, setDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 
@@ -11,6 +11,8 @@ interface WhatToDoItem {
   createdAt: string;
   createdBy: string;
 }
+
+export type SortOption = 'pending_first' | 'completed_first' | 'newest' | 'oldest' | 'alpha_asc' | 'alpha_desc';
 
 interface WhatToDoTogetherProps {
   currentUserProfile?: 'Girlfriend' | 'Boyfriend' | 'Us';
@@ -26,10 +28,86 @@ export default function WhatToDoTogether({ currentUserProfile = 'Girlfriend' }: 
   const [editingText, setEditingText] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Sorting state with persistence
+  const [sortBy, setSortBy] = useState<SortOption>(() => {
+    try {
+      const saved = localStorage.getItem('millifix_checklist_sort');
+      if (saved && ['pending_first', 'completed_first', 'newest', 'oldest', 'alpha_asc', 'alpha_desc'].includes(saved)) {
+        return saved as SortOption;
+      }
+    } catch {
+      // Ignore
+    }
+    return 'pending_first';
+  });
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
+
+  // Close sort menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
+        setIsSortOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelectSort = (option: SortOption) => {
+    setSortBy(option);
+    setIsSortOpen(false);
+    try {
+      localStorage.setItem('millifix_checklist_sort', option);
+    } catch {
+      // Ignore
+    }
+  };
+
   // Auto-sync creator when profile switches
   useEffect(() => {
     setSelectedCreator(currentUserProfile === 'Boyfriend' ? 'Sbu 🤍' : 'Milli 🤍');
   }, [currentUserProfile]);
+
+  // Memoized sorted items
+  const sortedItems = useMemo(() => {
+    const list = [...items];
+    switch (sortBy) {
+      case 'pending_first':
+        return list.sort((a, b) => {
+          if (a.completed === b.completed) {
+            return b.id.localeCompare(a.id);
+          }
+          return a.completed ? 1 : -1;
+        });
+      case 'completed_first':
+        return list.sort((a, b) => {
+          if (a.completed === b.completed) {
+            return b.id.localeCompare(a.id);
+          }
+          return a.completed ? -1 : 1;
+        });
+      case 'newest':
+        return list.sort((a, b) => b.id.localeCompare(a.id));
+      case 'oldest':
+        return list.sort((a, b) => a.id.localeCompare(b.id));
+      case 'alpha_asc':
+        return list.sort((a, b) => a.text.localeCompare(b.text));
+      case 'alpha_desc':
+        return list.sort((a, b) => b.text.localeCompare(a.text));
+      default:
+        return list;
+    }
+  }, [items, sortBy]);
+
+  const sortLabels: Record<SortOption, string> = {
+    pending_first: 'Uncompleted First',
+    completed_first: 'Completed First',
+    newest: 'Newest Added',
+    oldest: 'Oldest Added',
+    alpha_asc: 'Alphabetical (A–Z)',
+    alpha_desc: 'Alphabetical (Z–A)',
+  };
 
   // Real-time listener for checklist items
   useEffect(() => {
@@ -254,6 +332,66 @@ export default function WhatToDoTogether({ currentUserProfile = 'Girlfriend' }: 
           </div>
         </form>
 
+        {/* Sub-toolbar with item counter and Sort Button */}
+        <div className="flex items-center justify-between gap-2 pt-1 pb-1 border-b border-white/5">
+          <div className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+            <span>Bucket List</span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-white font-mono">{items.length} {items.length === 1 ? 'idea' : 'ideas'}</span>
+          </div>
+
+          {/* Sort Button and Dropdown Menu */}
+          <div className="relative" ref={sortRef}>
+            <button
+              type="button"
+              onClick={() => setIsSortOpen(!isSortOpen)}
+              className="px-3 py-1.5 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 border border-white/10 hover:border-accent/40 text-zinc-300 hover:text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+              title="Change checklist sorting order"
+            >
+              <ArrowUpDown className="w-3.5 h-3.5 text-accent" />
+              <span>Sort: <span className="text-accent">{sortLabels[sortBy]}</span></span>
+              <ChevronDown className={`w-3 h-3 text-zinc-400 transition-transform ${isSortOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Dropdown Menu */}
+            <AnimatePresence>
+              {isSortOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 5, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 5, scale: 0.95 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 top-full mt-1.5 w-56 rounded-xl bg-zinc-950 border border-white/15 shadow-2xl p-1.5 z-50 backdrop-blur-xl"
+                >
+                  <div className="px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-zinc-500">
+                    Sort Checklist By
+                  </div>
+                  <div className="space-y-0.5">
+                    {(Object.keys(sortLabels) as SortOption[]).map((option) => {
+                      const isSelected = sortBy === option;
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => handleSelectSort(option)}
+                          className={`w-full text-left px-2.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                            isSelected
+                              ? 'bg-accent text-white shadow-sm'
+                              : 'text-zinc-300 hover:bg-white/5 hover:text-white'
+                          }`}
+                        >
+                          <span>{sortLabels[option]}</span>
+                          {isSelected && <Check className="w-3.5 h-3.5" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
         {/* Checklist Rows wrapper */}
         <div className="space-y-2.5">
           {items.length === 0 ? (
@@ -266,7 +404,7 @@ export default function WhatToDoTogether({ currentUserProfile = 'Girlfriend' }: 
           ) : (
             <div className="divide-y divide-white/5 max-h-[500px] overflow-y-auto pr-1">
               <AnimatePresence initial={false}>
-                {items.map((item) => {
+                {sortedItems.map((item) => {
                   const isEditing = editingId === item.id;
                   const isMilli = item.createdBy.includes('Milli');
 

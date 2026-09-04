@@ -32,17 +32,22 @@ service cloud.firestore {
         && (!data.keys().hasAny(['audioDuration']) || (data.audioDuration is int || data.audioDuration is float));
     }
 
-    // Validation for Song Dedications
+    // Validation for Song & Media Dedications
     function isValidSongDedication(data) {
       return data.keys().hasAll(['id', 'songTitle', 'from', 'to', 'message', 'timestamp', 'sticker'])
-        && data.keys().size() == 7
         && data.id is string && data.id.size() <= 100
         && data.songTitle is string && data.songTitle.size() <= 200
         && data.from is string && data.from.size() <= 100
         && data.to is string && data.to.size() <= 100
-        && data.message is string && data.message.size() <= 1000
+        && data.message is string && data.message.size() <= 2000
         && data.timestamp is string && data.timestamp.size() <= 50
-        && data.sticker is string && (data.sticker == 'heart' || data.sticker == 'star' || data.sticker == 'rose' || data.sticker == 'fire');
+        && data.sticker is string && data.sticker.size() <= 30
+        && (!('type' in data) || (data.type is string && data.type.size() <= 20))
+        && (!('linkUrl' in data) || (data.linkUrl is string && data.linkUrl.size() <= 2000))
+        && (!('thumbnailUrl' in data) || (data.thumbnailUrl is string && data.thumbnailUrl.size() <= 2000000))
+        && (!('audioData' in data) || (data.audioData is string && data.audioData.size() <= 2000000))
+        && (!('audioDuration' in data) || (data.audioDuration is number))
+        && (!('mediaPlatform' in data) || (data.mediaPlatform is string && data.mediaPlatform.size() <= 50));
     }
 
     // Validation for Custom Episodes
@@ -120,6 +125,30 @@ service cloud.firestore {
         && (!data.keys().hasAny(['recipient']) || (data.recipient is string && data.recipient.size() <= 100));
     }
 
+    // Validation for Custom Categories
+    function isValidCustomCategory(data) {
+      return data.keys().hasAll(['id', 'name', 'createdAt'])
+        && data.id is string && data.id.size() <= 100
+        && data.name is string && data.name.size() <= 100
+        && data.createdAt is string && data.createdAt.size() <= 100
+        && (!data.keys().hasAny(['profile']) || (data.profile is string && data.profile.size() <= 50))
+        && (!data.keys().hasAny(['order']) || (data.order is int || data.order is float));
+    }
+
+    // Validation for Credits Config
+    function isValidCreditsConfig(data) {
+      return data.keys().hasAll(['id', 'updatedAt'])
+        && data.id is string && data.id.size() <= 100
+        && data.updatedAt is string && data.updatedAt.size() <= 100
+        && (!data.keys().hasAny(['bgType']) || (data.bgType is string && data.bgType.size() <= 50))
+        && (!data.keys().hasAny(['bgMediaUrl']) || (data.bgMediaUrl is string && data.bgMediaUrl.size() <= 1500000))
+        && (!data.keys().hasAny(['bgOpacity']) || (data.bgOpacity is int || data.bgOpacity is float))
+        && (!data.keys().hasAny(['title']) || (data.title is string && data.title.size() <= 200))
+        && (!data.keys().hasAny(['subtitle']) || (data.subtitle is string && data.subtitle.size() <= 300))
+        && (!data.keys().hasAny(['quote']) || (data.quote is string && data.quote.size() <= 1000))
+        && (!data.keys().hasAny(['sections']) || data.sections is list);
+    }
+
     // Rules for love_notes collection
     match /love_notes/{noteId} {
       allow read: if true;
@@ -182,6 +211,22 @@ service cloud.firestore {
       allow create: if isValidId(itemId) && isValidLoveJarNote(incoming()) && incoming().id == itemId;
       allow update: if isValidId(itemId) && isValidLoveJarNote(incoming()) && incoming().id == itemId;
       allow delete: if isValidId(itemId);
+    }
+
+    // Rules for custom_categories collection
+    match /custom_categories/{categoryId} {
+      allow read: if true;
+      allow create: if isValidId(categoryId) && isValidCustomCategory(incoming()) && incoming().id == categoryId;
+      allow update: if isValidId(categoryId) && isValidCustomCategory(incoming()) && incoming().id == categoryId;
+      allow delete: if isValidId(categoryId);
+    }
+
+    // Rules for credits_config collection
+    match /credits_config/{configId} {
+      allow read: if true;
+      allow create: if isValidId(configId) && isValidCreditsConfig(incoming()) && incoming().id == configId;
+      allow update: if isValidId(configId) && isValidCreditsConfig(incoming()) && incoming().id == configId;
+      allow delete: if isValidId(configId);
     }
   }
 }

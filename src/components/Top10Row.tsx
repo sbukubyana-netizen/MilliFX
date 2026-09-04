@@ -53,6 +53,8 @@ const Top10Row: React.FC<Top10RowProps> = ({ id, items, userStats, onLike, onSel
                 <img
                   src={item.imageUrl}
                   alt={item.title}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-80 group-hover:opacity-100"
                   referrerPolicy="no-referrer"
                 />
