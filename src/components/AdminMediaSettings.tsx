@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Plus, Trash2, Video, Image as ImageIcon, Settings, Sparkles, Check, HelpCircle, Upload, Film, Edit, RefreshCw, User, Play, Pause, Zap, HardDrive, CheckCircle2, FolderPlus, Folder, Tag, Layers, Edit3, Clapperboard } from 'lucide-react';
+import { X, Plus, Trash2, Video, Image as ImageIcon, Settings, Sparkles, Check, HelpCircle, Upload, Film, Edit, RefreshCw, User, Play, Pause, Zap, HardDrive, CheckCircle2, FolderPlus, Folder, Tag, Layers, Edit3, Clapperboard, LayoutGrid, List, Search, ChevronDown } from 'lucide-react';
 import { collection, setDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, sanitizeFirestoreData } from '../firebase';
 import { Episode, Memory, CATEGORIES, CustomCategory } from '../constants';
 import { purgeAllCacheData, CachePurgeResult } from '../utils/cacheManager';
+import { expandMediaUrls } from '../utils/urlExpander';
 import AdminCreditsSettings from './AdminCreditsSettings';
 
 interface AdminMediaSettingsProps {
@@ -47,40 +48,17 @@ const PRESET_COVERS = [
   { name: 'Night Under Stars', url: 'https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?auto=format&fit=crop&w=800&q=80' },
 ];
 
-// Reusable URL range sequence expansion logic
+// Reusable URL range sequence expansion logic (supports up to 10,000 items)
 export function expandUrlsForPreview(text: string): string[] {
-  if (!text) return [];
-  const result: string[] = [];
-  const flattened: string[] = [];
-  
-  // Split input text robustly by commas, semicolons, or newlines
-  const parts = text.split(/[,\n;]/).map(p => p.trim()).filter(p => p.length > 0);
-  flattened.push(...parts);
-
-  for (const url of flattened) {
-    const trimmed = url.trim();
-    if (!trimmed) continue;
-    const match = trimmed.match(/^(.*?)(\w+?)(100|300)(\.[a-zA-Z0-9]+)?$/);
-    if (match) {
-      const prefixPath = match[1];
-      const baseName = match[2];
-      const count = parseInt(match[3], 10);
-      const ext = match[4] || (baseName.toLowerCase().includes('video') || prefixPath.toLowerCase().includes('video') ? '.mp4' : '.jpg');
-      for (let i = 1; i <= count; i++) {
-        result.push(`${prefixPath}${baseName}${i}${ext}`);
-      }
-    } else {
-      result.push(trimmed);
-    }
-  }
-  return result;
+  return expandMediaUrls(text, 10000);
 }
 
-// Reusable Paginated Sequence Preview Grid Component
+// Reusable Paginated Sequence Preview Grid Component (Scales smoothly up to 10,000 URLs)
 function SequencePreviewGrid({ urlsText }: { urlsText: string }) {
-  const expandedUrls = expandUrlsForPreview(urlsText);
+  const expandedUrls = useMemo(() => expandUrlsForPreview(urlsText), [urlsText]);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20; // Paginate to ensure smooth rendering and avoid connection limits
+  const [jumpInput, setJumpInput] = useState('');
+  const itemsPerPage = 24;
   
   if (expandedUrls.length === 0) {
     return (
@@ -99,45 +77,94 @@ function SequencePreviewGrid({ urlsText }: { urlsText: string }) {
     }
   }, [expandedUrls.length, totalPages, currentPage]);
 
+  const handleJump = (e: React.FormEvent) => {
+    e.preventDefault();
+    const p = parseInt(jumpInput, 10);
+    if (!isNaN(p) && p >= 1 && p <= totalPages) {
+      setCurrentPage(p);
+      setJumpInput('');
+    }
+  };
+
   const displayedUrls = expandedUrls.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <div className="bg-black/30 border border-white/5 rounded-xl p-4 space-y-3.5 transition-all animate-fadeIn">
-      <div className="flex items-center justify-between border-b border-white/5 pb-2">
-        <div className="flex items-center gap-2">
+    <div className="bg-black/40 border border-white/10 rounded-xl p-3 sm:p-4 space-y-3 transition-all animate-fadeIn">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-white/5 pb-2.5">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[10px] font-black uppercase text-accent tracking-widest">
             Sequence Verification Grid
           </span>
           <span className="text-[9px] bg-accent/20 text-accent px-2 py-0.5 rounded font-mono font-black uppercase tracking-wider">
-            {expandedUrls.length} Expanded Link{expandedUrls.length > 1 ? 's' : ''}
+            {expandedUrls.length.toLocaleString()} Expanded Link{expandedUrls.length > 1 ? 's' : ''}
           </span>
         </div>
+
         {totalPages > 1 && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(1)}
+              className="text-[9px] font-bold px-1.5 py-1 bg-zinc-800 text-zinc-300 rounded hover:bg-zinc-700 disabled:opacity-30 transition-colors cursor-pointer"
+              title="First Page"
+            >
+              &laquo;
+            </button>
             <button
               type="button"
               disabled={currentPage === 1}
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              className="text-[9px] font-bold px-2 py-1 bg-zinc-800 text-zinc-300 rounded hover:bg-zinc-700 disabled:opacity-40 transition-colors cursor-pointer"
+              className="text-[9px] font-bold px-2 py-1 bg-zinc-800 text-zinc-300 rounded hover:bg-zinc-700 disabled:opacity-30 transition-colors cursor-pointer"
             >
               Prev
             </button>
-            <span className="text-[9px] text-zinc-400 font-mono">
-              {currentPage} / {totalPages}
+            <span className="text-[9px] text-zinc-400 font-mono px-1">
+              Page {currentPage} of {totalPages}
             </span>
             <button
               type="button"
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              className="text-[9px] font-bold px-2 py-1 bg-zinc-800 text-zinc-300 rounded hover:bg-zinc-700 disabled:opacity-40 transition-colors cursor-pointer"
+              className="text-[9px] font-bold px-2 py-1 bg-zinc-800 text-zinc-300 rounded hover:bg-zinc-700 disabled:opacity-30 transition-colors cursor-pointer"
             >
               Next
             </button>
+            <button
+              type="button"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(totalPages)}
+              className="text-[9px] font-bold px-1.5 py-1 bg-zinc-800 text-zinc-300 rounded hover:bg-zinc-700 disabled:opacity-30 transition-colors cursor-pointer"
+              title="Last Page"
+            >
+              &raquo;
+            </button>
+
+            {/* Quick jump */}
+            {totalPages > 5 && (
+              <form onSubmit={handleJump} className="flex items-center gap-1 ml-1">
+                <input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  placeholder="Go to"
+                  value={jumpInput}
+                  onChange={(e) => setJumpInput(e.target.value)}
+                  className="w-12 bg-zinc-900 border border-white/10 rounded px-1 py-0.5 text-[9px] font-mono text-center text-white focus:outline-none focus:border-accent"
+                />
+                <button
+                  type="submit"
+                  className="text-[9px] px-1.5 py-0.5 bg-accent text-white rounded font-bold hover:opacity-90 cursor-pointer"
+                >
+                  Go
+                </button>
+              </form>
+            )}
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 max-h-[260px] overflow-y-auto pr-1">
+      <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 max-h-[260px] overflow-y-auto pr-1">
         {displayedUrls.map((url, index) => {
           const globalIndex = (currentPage - 1) * itemsPerPage + index + 1;
           const isVideo = url.toLowerCase().endsWith('.mp4') || url.includes('video') || url.startsWith('data:video');
@@ -586,6 +613,29 @@ export default function AdminMediaSettings({
 
   // --- SECTION 2: EDIT EPISODE STATE ---
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>('');
+  // Card Picker View Mode: 'grid' | 'list' | 'dropdown'
+  const [cardPickerViewMode, setCardPickerViewMode] = useState<'grid' | 'list' | 'dropdown'>('grid');
+  const [cardPickerSearch, setCardPickerSearch] = useState('');
+  const [cardPickerCategory, setCardPickerCategory] = useState('all');
+
+  const filteredEpisodesForPicker = useMemo(() => {
+    return allEpisodes.filter(ep => {
+      if (ep.category === 'Global Top 10 in MilliSbu' || ep.category === 'Continue Watching') {
+        return false;
+      }
+      if (cardPickerCategory !== 'all' && ep.category !== cardPickerCategory) {
+        return false;
+      }
+      if (cardPickerSearch.trim()) {
+        const query = cardPickerSearch.toLowerCase();
+        const matchesTitle = (ep.title || '').toLowerCase().includes(query);
+        const matchesCat = (ep.category || '').toLowerCase().includes(query);
+        const matchesDesc = (ep.description || '').toLowerCase().includes(query);
+        return matchesTitle || matchesCat || matchesDesc;
+      }
+      return true;
+    });
+  }, [allEpisodes, cardPickerCategory, cardPickerSearch]);
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editCategory, setEditCategory] = useState('');
@@ -614,9 +664,9 @@ export default function AdminMediaSettings({
     }
 
     const currentCount = isEditMode ? editMemories.length : createMemories.length;
-    const remainingSlots = 300 - currentCount;
+    const remainingSlots = 10000 - currentCount;
     if (remainingSlots <= 0) {
-      alert("You have reached the maximum slideshow limit of 300 items!");
+      alert("You have reached the maximum slideshow limit of 10,000 items!");
       return;
     }
 
@@ -709,11 +759,11 @@ export default function AdminMediaSettings({
   };
 
   const processUploadedFiles = (files: File[], isEditMode: boolean) => {
-    // Up to 300 total files limit check
+    // Up to 10000 total files limit check
     const currentCount = isEditMode ? editMemories.length : createMemories.length;
-    const remainingSlots = 300 - currentCount;
+    const remainingSlots = 10000 - currentCount;
     if (remainingSlots <= 0) {
-      alert("You have already reached the limit of 300 files for this slideshow! Delete some files if you wish to upload replacements.");
+      alert("You have already reached the limit of 10,000 files for this slideshow! Delete some files if you wish to upload replacements.");
       return;
     }
 
@@ -1101,7 +1151,7 @@ export default function AdminMediaSettings({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[400] flex items-center justify-center p-3 md:p-6" id="editor-dashboard-modal-outer">
+    <div className="fixed inset-0 z-[500] flex items-center justify-center p-2 sm:p-4 md:p-6" id="editor-dashboard-modal-outer">
       {/* Backdrop */}
       <motion.div 
         initial={{ opacity: 0 }}
@@ -1116,133 +1166,136 @@ export default function AdminMediaSettings({
         initial={{ scale: 0.96, opacity: 0, y: 15 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.96, opacity: 0, y: 15 }}
-        className="relative bg-zinc-900 border border-white/10 w-full max-w-5xl max-h-[92vh] rounded-2xl overflow-hidden shadow-2xl flex flex-col z-50 text-white font-sans"
+        className="relative bg-zinc-900 border border-white/10 w-full max-w-5xl h-[95vh] sm:h-auto sm:max-h-[92vh] rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col z-50 text-white font-sans"
         id="editor-dashboard-modal-inner"
       >
         {/* Upper Header Control Area */}
-        <div className="p-5 md:p-6 border-b border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-zinc-950/40">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center">
-              <Settings className="w-5 h-5 text-accent animate-spin-slow" />
+        <div className="p-4 sm:p-5 md:p-6 pr-12 sm:pr-14 md:pr-16 border-b border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 bg-zinc-950/40 relative">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
+              <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-accent animate-spin-slow" />
             </div>
-            <div>
-              <h2 className="text-base md:text-lg font-black tracking-tight text-white flex items-center gap-2">
-                STUDIO PRODUCTION STUDIO
-                <span className="text-[9px] bg-accent/20 text-accent font-black uppercase tracking-wider px-2 py-0.5 rounded">All-Devices Sync</span>
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base md:text-lg font-black tracking-tight text-white flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <span>STUDIO PRODUCTION STUDIO</span>
+                <span className="text-[8px] sm:text-[9px] bg-accent/20 text-accent font-black uppercase tracking-wider px-2 py-0.5 rounded">All-Devices Sync</span>
               </h2>
-              <p className="text-[11px] text-zinc-400">Add local media up to 8 files, configure captions, and edit existing rows directly without code.</p>
+              <p className="text-[10px] sm:text-[11px] text-zinc-400 line-clamp-1 sm:line-clamp-none">Add local media or URL sequences up to 10,000 items, configure captions, and edit existing rows directly.</p>
             </div>
           </div>
           
           {/* Close trigger */}
           <button 
+            type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 border border-transparent hover:border-white/15 text-zinc-400 hover:text-white transition-all"
+            aria-label="Close settings"
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 rounded-full hover:bg-white/10 border border-transparent hover:border-white/15 text-zinc-400 hover:text-white transition-all cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Navigation Selector Sections */}
-        <div className="bg-zinc-950 px-4 md:px-6 py-4 border-b border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex flex-wrap gap-2 bg-zinc-900/60 p-1.5 rounded-xl border border-white/5">
+        <div className="bg-zinc-950 px-2.5 sm:px-6 py-2.5 sm:py-3.5 border-b border-white/5 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5 sm:gap-3 overflow-hidden">
+          <div className="flex overflow-x-auto no-scrollbar gap-1 sm:gap-1.5 bg-zinc-900/60 p-1 sm:p-1.5 rounded-xl border border-white/5 max-w-full touch-pan-x">
             <button
               type="button"
               onClick={() => setActiveTab('create')}
-              className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'create' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              className={`px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-lg text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${activeTab === 'create' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
             >
-              <Plus className="w-4 h-4" />
-              Create Card
+              <Plus className="w-3.5 h-3.5" />
+              <span>Create Card</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('edit')}
-              className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'edit' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              className={`px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-lg text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${activeTab === 'edit' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
             >
-              <Edit className="w-4 h-4" />
-              Manage Cards
+              <Edit className="w-3.5 h-3.5" />
+              <span>Manage Cards</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('categories')}
-              className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'categories' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              className={`px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-lg text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${activeTab === 'categories' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
             >
-              <FolderPlus className="w-4 h-4" />
-              Categories
+              <FolderPlus className="w-3.5 h-3.5" />
+              <span>Categories</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('daily_notes')}
-              className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'daily_notes' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              className={`px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-lg text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${activeTab === 'daily_notes' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
             >
-              <span>📝</span> Daily Notes
+              <span>📝</span>
+              <span>Daily Notes</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('studio_config')}
-              className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'studio_config' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              className={`px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-lg text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${activeTab === 'studio_config' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
             >
-              <Settings className="w-4 h-4" />
-              Studio Config
+              <Settings className="w-3.5 h-3.5" />
+              <span>Studio Config</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('cache_speed')}
-              className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'cache_speed' ? 'bg-amber-500 text-zinc-950 font-black shadow-lg shadow-amber-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              className={`px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-lg text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${activeTab === 'cache_speed' ? 'bg-amber-500 text-zinc-950 font-black shadow-lg shadow-amber-500/20' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
             >
-              <Zap className="w-4 h-4 text-amber-400" />
-              Speed & Cache
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <span>Speed & Cache</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('credits_config')}
-              className={`px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'credits_config' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+              className={`px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-lg text-[11px] sm:text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${activeTab === 'credits_config' ? 'bg-accent text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
             >
-              <Clapperboard className="w-4 h-4" />
-              Movie Credits & BG
+              <Clapperboard className="w-3.5 h-3.5" />
+              <span>Movie Credits & BG</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 shrink-0">
             {historyStack.length > 0 && (
               <button
                 type="button"
                 onClick={handleUndo}
-                className="px-3.5 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 bg-amber-500/15 hover:bg-amber-500 text-amber-400 hover:text-white border border-amber-500/30 transition-all shadow-md animate-pulse"
+                className="px-3 py-1.5 rounded-lg text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 bg-amber-500/15 hover:bg-amber-500 text-amber-400 hover:text-white border border-amber-500/30 transition-all shadow-md animate-pulse cursor-pointer"
                 title="Undo your last modifications or deletions"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                ↪️ Undo ({historyStack.length})
+                <RefreshCw className="w-3 h-3" />
+                <span>Undo ({historyStack.length})</span>
               </button>
             )}
 
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900 border border-white/10 shadow-inner">
-              <span className="text-[10px] text-zinc-400 font-extrabold uppercase tracking-widest">Target Workspace:</span>
-              <span className={`text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-zinc-900 border border-white/10 shadow-inner">
+              <span className="text-[9px] sm:text-[10px] text-zinc-400 font-extrabold uppercase tracking-widest">Workspace:</span>
+              <span className={`text-[10px] sm:text-[11px] font-black uppercase tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md ${
                 selectedProfile === 'Girlfriend' 
                   ? 'bg-[#ff2d55]/15 text-[#ff2d55]' 
                   : selectedProfile === 'Boyfriend' 
                     ? 'bg-violet-500/15 text-violet-400' 
                     : 'bg-pink-500/15 text-pink-400'
               }`}>
-                {selectedProfile === 'Girlfriend' ? 'Milli (Girlfriend)' : selectedProfile === 'Boyfriend' ? 'Sbu (Boyfriend)' : 'Us Together 🤍'}
+                {selectedProfile === 'Girlfriend' ? 'Milli' : selectedProfile === 'Boyfriend' ? 'Sbu' : 'Us Together'}
               </span>
             </div>
           </div>
         </div>
 
         {/* Tab content area container */}
-        <div className="flex-1 overflow-y-auto p-5 md:p-8 space-y-6">
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 md:p-8 space-y-5 sm:space-y-6">
 
           {/* TAB 1: CREATE SLIDESHOW CARD */}
           {activeTab === 'create' && (
             <form onSubmit={handleSaveNewCourse} className="space-y-6">
               
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
                 
                 {/* Information inputs */}
-                <div className="md:col-span-6 space-y-4">
-                  <div className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-4">
+                <div className="lg:col-span-6 space-y-4">
+                  <div className="p-3.5 sm:p-4 bg-white/5 rounded-xl border border-white/5 space-y-4">
                     <h3 className="text-xs font-black uppercase tracking-widest text-accent flex items-center gap-1.5 border-b border-white/5 pb-2">
                       <Sparkles className="w-3.5 h-3.5" /> Row Properties & Categorization
                     </h3>
@@ -1326,7 +1379,7 @@ export default function AdminMediaSettings({
                     </div>
                   </div>
 
-                  <div className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-4">
+                  <div className="p-3.5 sm:p-4 bg-white/5 rounded-xl border border-white/5 space-y-4">
                     <h3 className="text-xs font-black uppercase tracking-widest text-accent flex items-center gap-1.5 border-b border-white/5 pb-2">
                       <ImageIcon className="w-3.5 h-3.5" /> Customize Cover Artwork (Optional)
                     </h3>
@@ -1344,7 +1397,7 @@ export default function AdminMediaSettings({
 
                     <div className="pt-1.5">
                       <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 block mb-2">Preset Artwork Templates:</span>
-                      <div className="grid grid-cols-4 gap-1.5">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {PRESET_COVERS.map(cover => (
                           <div 
                             key={cover.name}
@@ -1360,7 +1413,7 @@ export default function AdminMediaSettings({
                 </div>
 
                 {/* Media Loader Panel */}
-                <div className="md:col-span-6 space-y-4">
+                <div className="lg:col-span-6 space-y-4">
                   {/* Tab Selector for media uploader */}
                   <div className="flex bg-zinc-950 p-1 rounded-xl border border-white/5">
                     <button
@@ -1375,7 +1428,7 @@ export default function AdminMediaSettings({
                       onClick={() => setCardUploaderTab('url_range')}
                       className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${cardUploaderTab === 'url_range' ? 'bg-zinc-800 text-white border border-white/5 shadow' : 'text-zinc-400 hover:text-white'}`}
                     >
-                      🔗 Paste URLs / 1-300 Range
+                      🔗 Paste URLs / 1-10000 Range
                     </button>
                   </div>
 
@@ -1398,7 +1451,7 @@ export default function AdminMediaSettings({
                       />
                       <Upload className="w-10 h-10 text-accent mb-3 animate-pulse" />
                       <p className="text-xs font-black uppercase text-white tracking-widest">DRAG & DROP LOCAL FILES HERE</p>
-                      <p className="text-[10px] text-zinc-400 mt-1 max-w-xs">Supports images (.png, .jpg, .webp) or videos (.mp4) up to 300 files total. Autoplay slideshow generates seamlessly.</p>
+                      <p className="text-[10px] text-zinc-400 mt-1 max-w-xs">Supports images (.png, .jpg, .webp) or videos (.mp4) up to 10,000 files total. Autoplay slideshow generates seamlessly.</p>
                       <button 
                         type="button" 
                         className="mt-4 px-4 py-1.5 bg-accent/20 border border-accent/30 text-accent hover:bg-accent hover:text-white rounded text-[10px] font-black uppercase tracking-wider transition-all"
@@ -1411,13 +1464,13 @@ export default function AdminMediaSettings({
                       <div className="space-y-3">
                         <div>
                           <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
-                            Web URL or Range Pattern (Ends with 100 or 300)
+                            Web URL or Range Pattern (e.g. video10000.mp4 or [1-10000])
                           </label>
                           <textarea 
                             rows={3}
                             value={urlRangeInput}
                             onChange={(e) => setUrlRangeInput(e.target.value)}
-                            placeholder="e.g. https://domain.com/love300.jpg&#10;or multiple URLs (one per line)"
+                            placeholder="e.g. https://domain.com/love10000.jpg&#10;or [1-10000] range&#10;or multiple URLs (one per line, up to 10,000)"
                             className="w-full bg-zinc-900 border border-white/10 p-3 rounded-lg text-[11px] text-white font-mono focus:outline-none focus:border-accent transition-all min-h-[90px]"
                           />
                         </div>
@@ -1471,7 +1524,7 @@ export default function AdminMediaSettings({
                   <div className="flex justify-between items-center px-1">
                     <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Total Loaded Slides:</span>
                     <span className="text-[10px] bg-accent/20 text-accent font-black px-2 py-0.5 rounded uppercase tracking-wider">
-                      {createMemories.length} / 300 Limit
+                      {createMemories.length.toLocaleString()} / 10,000 Limit
                     </span>
                   </div>
 
@@ -1492,10 +1545,10 @@ export default function AdminMediaSettings({
                     🎙️ Write Custom Captions & Dialogs for Each Moment in the Slide Deck
                   </h4>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     {createMemories.map((slide, idx) => (
-                      <div key={slide.id} className="p-3.5 bg-zinc-950 border border-white/10 rounded-xl flex gap-3 h-32 items-stretch">
-                        <div className="w-20 rounded overflow-hidden bg-black/50 border border-white/5 flex-shrink-0 relative">
+                      <div key={slide.id} className="p-3 sm:p-3.5 bg-zinc-950 border border-white/10 rounded-xl flex flex-col sm:flex-row gap-3 min-h-[8.5rem] h-auto items-stretch">
+                        <div className="w-full h-24 sm:w-20 sm:h-auto rounded overflow-hidden bg-black/50 border border-white/5 shrink-0 relative">
                           {slide.videoUrl ? (
                             <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 border border-white/5">
                               <Film className="w-6 h-6 text-accent" />
@@ -1506,7 +1559,7 @@ export default function AdminMediaSettings({
                           )}
                         </div>
 
-                        <div className="flex-1 flex flex-col justify-between min-w-0">
+                        <div className="flex-1 flex flex-col justify-between min-w-0 space-y-2">
                           <div className="space-y-1.5">
                             <input 
                               type="text" 
@@ -1520,11 +1573,11 @@ export default function AdminMediaSettings({
                               onChange={(e) => updateMemoryField(idx, 'description', e.target.value, false)}
                               placeholder="Heartfelt memory details / dialogue here... 🥰"
                               rows={2}
-                              className="w-full bg-white/5 border border-white/10 px-2 py-0.5 rounded text-[10px] focus:border-accent outline-none text-zinc-300 resize-none h-12 leading-tight"
+                              className="w-full bg-white/5 border border-white/10 px-2 py-1 rounded text-[10px] focus:border-accent outline-none text-zinc-300 resize-none min-h-[44px] leading-tight"
                             />
                           </div>
                           
-                          <div className="flex justify-between items-center">
+                          <div className="flex justify-between items-center pt-1 border-t border-white/5">
                             <span className="text-[8px] uppercase tracking-widest text-zinc-500 font-bold">Slide {idx + 1}</span>
                             <button
                               type="button"
@@ -1557,41 +1610,389 @@ export default function AdminMediaSettings({
           {activeTab === 'edit' && (
             <div className="space-y-6">
               
-              {/* Dropdown to select any Row from current list of episodes */}
-              <div className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-3">
-                <label className="text-xs font-black uppercase tracking-wider text-accent block">Choose Existing Card to Edit / Modify:</label>
-                <div className="flex gap-2">
-                  <select
-                    value={selectedEpisodeId}
-                    onChange={(e) => setSelectedEpisodeId(e.target.value)}
-                    className="flex-1 bg-zinc-950 border border-white/15 p-2.5 rounded-lg text-xs focus:ring-1 focus:ring-accent outline-none text-white font-bold"
-                  >
-                    <option value="" className="text-zinc-500">-- Select a Card below --</option>
-                    {CATEGORIES.filter(c => c !== 'Global Top 10 in MilliSbu' && c !== 'Continue Watching').map((category) => {
-                      const matches = allEpisodes.filter(e => e.category === category);
-                      if (matches.length === 0) return null;
-                      return (
-                        <optgroup key={category} label={category} className="bg-zinc-950 text-white font-normal">
-                          {matches.map(ep => (
-                            <option key={ep.id} value={ep.id} className="text-white font-bold">
-                              {ep.title} {ep.id.startsWith('eps-custom-') ? '★ (Custom Card)' : ' (Preset)'}
-                            </option>
-                          ))}
-                        </optgroup>
-                      );
-                    })}
-                  </select>
+              {/* Card Selection and Multi-View Switcher Component */}
+              <div className="p-4 sm:p-5 bg-white/5 rounded-2xl border border-white/10 space-y-4 shadow-xl">
+                <div className="space-y-3.5">
+                  {/* Upper Bar: Title, Count Badge, and View Mode Toggles */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-black uppercase tracking-wider text-accent block">
+                          Choose Existing Card to Edit / Modify:
+                        </label>
+                        <span className="text-[10px] bg-accent/20 text-accent font-mono px-2 py-0.5 rounded font-black">
+                          {filteredEpisodesForPicker.length} {filteredEpisodesForPicker.length === 1 ? 'Card' : 'Cards'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-zinc-400 mt-0.5">
+                        Browse your studio cards in Grid or List view, or search to jump to any card.
+                      </p>
+                    </div>
 
-                  {/* Revert custom Overrides button (available if edit custom or override on presets) */}
-                  {selectedEpisodeId && (
-                    <button
-                      type="button"
-                      onClick={() => handleRevertOrDelete(selectedEpisodeId, editTitle)}
-                      className="px-4 bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500 hover:text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors"
-                      title="Clear Customizations and Revert to Default preset"
+                    {/* View Switcher: Grid vs List vs Dropdown */}
+                    <div className="flex items-center gap-1 self-start sm:self-center bg-zinc-950 p-1 rounded-xl border border-white/10 shadow-inner">
+                      <button
+                        type="button"
+                        onClick={() => setCardPickerViewMode('grid')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                          cardPickerViewMode === 'grid'
+                            ? 'bg-accent text-white shadow-md'
+                            : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                        }`}
+                        title="Grid View (Visual Cards)"
+                      >
+                        <LayoutGrid className="w-3.5 h-3.5" />
+                        <span className="text-[11px] font-bold">Grid</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCardPickerViewMode('list')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                          cardPickerViewMode === 'list'
+                            ? 'bg-accent text-white shadow-md'
+                            : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                        }`}
+                        title="List View (Compact Rows)"
+                      >
+                        <List className="w-3.5 h-3.5" />
+                        <span className="text-[11px] font-bold">List</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCardPickerViewMode('dropdown')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                          cardPickerViewMode === 'dropdown'
+                            ? 'bg-accent text-white shadow-md'
+                            : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                        }`}
+                        title="Dropdown Selector View"
+                      >
+                        <ChevronDown className="w-3.5 h-3.5" />
+                        <span className="text-[11px] font-bold">Dropdown</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Filter and Search Controls (Active across all views) */}
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                    <div className="relative flex-1">
+                      <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="Search cards by title, category, or description..."
+                        value={cardPickerSearch}
+                        onChange={(e) => setCardPickerSearch(e.target.value)}
+                        className="w-full bg-zinc-950 border border-white/10 rounded-xl pl-9 pr-7 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-accent font-medium"
+                      />
+                      {cardPickerSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setCardPickerSearch('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white text-xs cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={cardPickerCategory}
+                        onChange={(e) => setCardPickerCategory(e.target.value)}
+                        className="bg-zinc-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-accent font-bold cursor-pointer"
+                      >
+                        <option value="all">All Categories ({allEpisodes.length})</option>
+                        {allAvailableCategories.map(cat => {
+                          const count = allEpisodes.filter(e => e.category === cat).length;
+                          return (
+                            <option key={cat} value={cat}>{cat} ({count})</option>
+                          );
+                        })}
+                      </select>
+
+                      {selectedEpisodeId && (
+                        <button
+                          type="button"
+                          onClick={() => handleRevertOrDelete(selectedEpisodeId, editTitle)}
+                          className="px-3 py-2 bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer"
+                          title="Clear Customizations and Revert to Default preset"
+                        >
+                          Reset / Delete
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Primary Selector Element (Satisfies CSS Selector and Provides Quick Jump) */}
+                  <div className={`flex gap-2 ${cardPickerViewMode === 'dropdown' ? 'block' : 'hidden'}`}>
+                    <select
+                      value={selectedEpisodeId}
+                      onChange={(e) => setSelectedEpisodeId(e.target.value)}
+                      className="flex-1 bg-zinc-950 border border-white/15 p-2.5 rounded-xl text-xs focus:ring-1 focus:ring-accent outline-none text-white font-bold"
                     >
-                      Delete Or Reset overrides
-                    </button>
+                      <option value="" className="text-zinc-500">-- Select a Card below --</option>
+                      {CATEGORIES.filter(c => c !== 'Global Top 10 in MilliSbu' && c !== 'Continue Watching').map((category) => {
+                        const matches = allEpisodes.filter(e => e.category === category);
+                        if (matches.length === 0) return null;
+                        return (
+                          <optgroup key={category} label={category} className="bg-zinc-950 text-white font-normal">
+                            {matches.map(ep => (
+                              <option key={ep.id} value={ep.id} className="text-white font-bold">
+                                {ep.title} {ep.id.startsWith('eps-custom-') ? '★ (Custom Card)' : ' (Preset)'}
+                              </option>
+                            ))}
+                          </optgroup>
+                        );
+                      })}
+                    </select>
+
+                    {selectedEpisodeId && (
+                      <button
+                        type="button"
+                        onClick={() => handleRevertOrDelete(selectedEpisodeId, editTitle)}
+                        className="px-4 bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap"
+                        title="Clear Customizations and Revert to Default preset"
+                      >
+                        Delete Or Reset overrides
+                      </button>
+                    )}
+                  </div>
+
+                  {/* VIEW 1: GRID VIEW */}
+                  {cardPickerViewMode === 'grid' && (
+                    <div className="space-y-2 pt-1">
+                      {filteredEpisodesForPicker.length === 0 ? (
+                        <div className="text-center py-8 bg-zinc-950/40 rounded-xl border border-white/5 space-y-2">
+                          <span className="text-2xl">🔍</span>
+                          <p className="text-xs text-zinc-400">No cards match your filter or search query.</p>
+                          <button
+                            type="button"
+                            onClick={() => { setCardPickerSearch(''); setCardPickerCategory('all'); }}
+                            className="text-[11px] text-accent font-bold underline cursor-pointer"
+                          >
+                            Clear search & category filter
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[380px] overflow-y-auto pr-1">
+                          {filteredEpisodesForPicker.map((ep) => {
+                            const isSelected = ep.id === selectedEpisodeId;
+                            const isCustom = ep.id.startsWith('eps-custom-');
+                            const slideCount = ep.images?.length || 0;
+                            return (
+                              <div
+                                key={ep.id}
+                                onClick={() => setSelectedEpisodeId(ep.id)}
+                                className={`group relative rounded-xl border overflow-hidden cursor-pointer transition-all duration-200 flex flex-col justify-between ${
+                                  isSelected
+                                    ? 'bg-accent/15 border-accent ring-2 ring-accent/40 shadow-lg shadow-accent/20'
+                                    : 'bg-zinc-950/80 border-white/10 hover:border-white/25 hover:bg-zinc-900/80'
+                                }`}
+                              >
+                                {/* Cover Thumbnail */}
+                                <div className="relative aspect-video w-full bg-zinc-900 overflow-hidden">
+                                  {ep.previewImageUrl ? (
+                                    <img
+                                      src={ep.previewImageUrl}
+                                      alt={ep.title}
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-zinc-600">
+                                      <ImageIcon className="w-6 h-6" />
+                                    </div>
+                                  )}
+                                  
+                                  {/* Badges */}
+                                  <div className="absolute top-2 left-2 right-2 flex items-center justify-between gap-1 pointer-events-none">
+                                    <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shadow-md backdrop-blur-md ${
+                                      isCustom ? 'bg-amber-500/90 text-zinc-950 font-black' : 'bg-black/70 text-zinc-300'
+                                    }`}>
+                                      {isCustom ? '★ Custom' : 'Preset'}
+                                    </span>
+                                    <span className="text-[8px] font-bold bg-black/70 text-zinc-300 px-1.5 py-0.5 rounded font-mono shadow-md backdrop-blur-md">
+                                      {slideCount} {slideCount === 1 ? 'file' : 'files'}
+                                    </span>
+                                  </div>
+
+                                  {isSelected && (
+                                    <div className="absolute inset-0 bg-accent/25 flex items-center justify-center backdrop-blur-[1px]">
+                                      <span className="bg-accent text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full shadow-lg flex items-center gap-1">
+                                        <Check className="w-3 h-3" /> Selected
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Meta */}
+                                <div className="p-2.5 space-y-1">
+                                  <div className="text-[9px] font-bold uppercase text-accent truncate tracking-wider">
+                                    {ep.category}
+                                  </div>
+                                  <h4 className="text-xs font-bold text-white truncate group-hover:text-accent transition-colors">
+                                    {ep.title}
+                                  </h4>
+                                  {ep.description && (
+                                    <p className="text-[10px] text-zinc-400 line-clamp-1">
+                                      {ep.description}
+                                    </p>
+                                  )}
+                                </div>
+
+                                {/* Bottom Action bar */}
+                                <div className="px-2.5 pb-2.5 pt-1 border-t border-white/5 flex items-center justify-between">
+                                  <span className="text-[9px] font-mono text-zinc-500 truncate max-w-[100px]">
+                                    {ep.id}
+                                  </span>
+                                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded transition-all ${
+                                    isSelected 
+                                      ? 'bg-accent text-white' 
+                                      : 'bg-white/10 text-zinc-300 group-hover:bg-accent group-hover:text-white'
+                                  }`}>
+                                    {isSelected ? 'Editing' : 'Select'}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* VIEW 2: LIST VIEW */}
+                  {cardPickerViewMode === 'list' && (
+                    <div className="space-y-1.5 pt-1">
+                      {filteredEpisodesForPicker.length === 0 ? (
+                        <div className="text-center py-8 bg-zinc-950/40 rounded-xl border border-white/5 space-y-2">
+                          <span className="text-2xl">🔍</span>
+                          <p className="text-xs text-zinc-400">No cards match your filter or search query.</p>
+                          <button
+                            type="button"
+                            onClick={() => { setCardPickerSearch(''); setCardPickerCategory('all'); }}
+                            className="text-[11px] text-accent font-bold underline cursor-pointer"
+                          >
+                            Clear search & category filter
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 max-h-[380px] overflow-y-auto pr-1">
+                          {filteredEpisodesForPicker.map((ep) => {
+                            const isSelected = ep.id === selectedEpisodeId;
+                            const isCustom = ep.id.startsWith('eps-custom-');
+                            const slideCount = ep.images?.length || 0;
+                            return (
+                              <div
+                                key={ep.id}
+                                onClick={() => setSelectedEpisodeId(ep.id)}
+                                className={`group p-2.5 rounded-xl border transition-all duration-150 cursor-pointer flex items-center justify-between gap-3 ${
+                                  isSelected
+                                    ? 'bg-accent/15 border-accent ring-1 ring-accent/40'
+                                    : 'bg-zinc-950/80 border-white/10 hover:border-white/20 hover:bg-zinc-900/60'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                  {/* Thumbnail */}
+                                  <div className="w-14 h-10 rounded-lg bg-zinc-900 overflow-hidden flex-shrink-0 relative border border-white/10">
+                                    {ep.previewImageUrl ? (
+                                      <img
+                                        src={ep.previewImageUrl}
+                                        alt={ep.title}
+                                        className="w-full h-full object-cover"
+                                        referrerPolicy="no-referrer"
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-zinc-600">
+                                        <ImageIcon className="w-4 h-4" />
+                                      </div>
+                                    )}
+                                    {isSelected && (
+                                      <div className="absolute inset-0 bg-accent/40 flex items-center justify-center">
+                                        <Check className="w-3.5 h-3.5 text-white" />
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Info */}
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <h4 className="text-xs font-bold text-white truncate group-hover:text-accent transition-colors">
+                                        {ep.title}
+                                      </h4>
+                                      <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                                        isCustom ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-white/10 text-zinc-400'
+                                      }`}>
+                                        {isCustom ? '★ Custom' : 'Preset'}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-[10px] text-zinc-400 mt-0.5 flex-wrap">
+                                      <span className="text-accent font-medium">{ep.category}</span>
+                                      <span className="text-zinc-600">•</span>
+                                      <span className="font-mono">{slideCount} {slideCount === 1 ? 'file' : 'files'}</span>
+                                      {ep.description && (
+                                        <>
+                                          <span className="text-zinc-600">•</span>
+                                          <span className="truncate max-w-[220px] text-zinc-400">{ep.description}</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Action */}
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setSelectedEpisodeId(ep.id); }}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                      isSelected
+                                        ? 'bg-accent text-white shadow-md'
+                                        : 'bg-white/10 text-zinc-300 hover:bg-accent hover:text-white'
+                                    }`}
+                                  >
+                                    {isSelected ? 'Editing' : 'Select'}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Selected Card Notification Banner */}
+                  {currentlyEditingEpisode && (
+                    <div className="p-3 bg-accent/10 border border-accent/20 rounded-xl flex items-center justify-between gap-3 animate-fadeIn">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {currentlyEditingEpisode.previewImageUrl && (
+                          <img
+                            src={currentlyEditingEpisode.previewImageUrl}
+                            alt={currentlyEditingEpisode.title}
+                            className="w-10 h-10 rounded-lg object-cover border border-white/10"
+                            referrerPolicy="no-referrer"
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black uppercase text-accent tracking-wider">Ready to Edit:</span>
+                            <span className="text-xs font-bold text-white truncate">{currentlyEditingEpisode.title}</span>
+                          </div>
+                          <p className="text-[10px] text-zinc-400 truncate">
+                            Category: <span className="text-zinc-300 font-bold">{currentlyEditingEpisode.category}</span> • {currentlyEditingEpisode.images?.length || 0} moments loaded in editor below
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedEpisodeId('')}
+                        className="text-[10px] text-zinc-400 hover:text-white px-2 py-1 rounded bg-white/5 hover:bg-white/10 font-bold shrink-0 cursor-pointer"
+                      >
+                        Clear Selection
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1600,11 +2001,11 @@ export default function AdminMediaSettings({
               {selectedEpisodeId ? (
                 <form onSubmit={handleSaveChangesOnExisting} className="space-y-6 animate-fadeIn">
                   
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
                     
                     {/* Information inputs */}
-                    <div className="md:col-span-6 space-y-4">
-                      <div className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-4">
+                    <div className="lg:col-span-6 space-y-4">
+                      <div className="p-3.5 sm:p-4 bg-white/5 rounded-xl border border-white/5 space-y-4">
                         <h3 className="text-xs font-black uppercase tracking-widest text-accent flex items-center gap-1.5 border-b border-white/5 pb-2">
                           <Edit className="w-3.5 h-3.5" /> Modify Card Details
                         </h3>
@@ -1659,7 +2060,7 @@ export default function AdminMediaSettings({
                         </div>
                       </div>
 
-                      <div className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-4">
+                      <div className="p-3.5 sm:p-4 bg-white/5 rounded-xl border border-white/5 space-y-4">
                         <h3 className="text-xs font-black uppercase tracking-widest text-accent flex items-center gap-1.5 border-b border-white/5 pb-2">
                           <ImageIcon className="w-3.5 h-3.5" /> Modify Card Cover Artwork
                         </h3>
@@ -1676,7 +2077,7 @@ export default function AdminMediaSettings({
 
                         <div className="pt-1.5">
                           <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-400 block mb-2">Change to Preset Template:</span>
-                          <div className="grid grid-cols-4 gap-1.5">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             {PRESET_COVERS.map(cover => (
                               <div 
                                 key={cover.name}
@@ -1692,7 +2093,7 @@ export default function AdminMediaSettings({
                     </div>
 
                      {/* Media Loader Panel for Editing */}
-                    <div className="md:col-span-6 space-y-4">
+                    <div className="lg:col-span-6 space-y-4">
                       {/* Tab Selector for edit media uploader */}
                       <div className="flex bg-zinc-950 p-1 rounded-xl border border-white/5">
                         <button
@@ -1707,7 +2108,7 @@ export default function AdminMediaSettings({
                           onClick={() => setEditCardUploaderTab('url_range')}
                           className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${editCardUploaderTab === 'url_range' ? 'bg-zinc-800 text-white border border-white/5 shadow' : 'text-zinc-400 hover:text-white'}`}
                         >
-                          🔗 Paste URLs / 1-300 Range
+                          🔗 Paste URLs / 1-10000 Range
                         </button>
                       </div>
 
@@ -1730,7 +2131,7 @@ export default function AdminMediaSettings({
                           />
                           <Upload className="w-10 h-10 text-accent mb-3 animate-pulse" />
                           <p className="text-xs font-black uppercase text-white tracking-widest">UPLOAD MORE PHOTOS/VIDEOS HERE</p>
-                          <p className="text-[10px] text-zinc-400 mt-1 max-w-xs">Instantly appends uploads to the slideshow queue (maximum 300 allowed total in the slide series).</p>
+                          <p className="text-[10px] text-zinc-400 mt-1 max-w-xs">Instantly appends uploads to the slideshow queue (maximum 10,000 allowed total in the slide series).</p>
                           <button 
                             type="button" 
                             className="mt-4 px-4 py-1.5 bg-accent/20 border border-accent/30 text-accent hover:bg-accent hover:text-white rounded text-[10px] font-black uppercase tracking-wider transition-all"
@@ -1743,13 +2144,13 @@ export default function AdminMediaSettings({
                           <div className="space-y-3">
                             <div>
                               <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
-                                Web URL or Range Pattern (Ends with 100 or 300)
+                                Web URL or Range Pattern (e.g. video10000.mp4 or [1-10000])
                               </label>
                               <textarea 
                                 rows={3}
                                 value={editUrlRangeInput}
                                 onChange={(e) => setEditUrlRangeInput(e.target.value)}
-                                placeholder="e.g. https://domain.com/love300.jpg&#10;or multiple URLs (one per line)"
+                                placeholder="e.g. https://domain.com/love10000.jpg&#10;or [1-10000] range&#10;or multiple URLs (one per line, up to 10,000)"
                                 className="w-full bg-zinc-900 border border-white/10 p-3 rounded-lg text-[11px] text-white font-mono focus:outline-none focus:border-accent transition-all min-h-[90px]"
                               />
                             </div>
@@ -1802,7 +2203,7 @@ export default function AdminMediaSettings({
                       <div className="flex justify-between items-center px-1">
                         <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Current Slides count:</span>
                         <span className="text-[10px] bg-accent/25 text-accent font-black px-2 py-0.5 rounded uppercase tracking-wider">
-                          {editMemories.length} / 300 Limit
+                          {editMemories.length.toLocaleString()} / 10,000 Limit
                         </span>
                       </div>
                     </div>
@@ -1814,10 +2215,10 @@ export default function AdminMediaSettings({
                       🎙️ Edit Exist Slides Captions & Slide Dialogues or Re-order
                     </h4>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       {editMemories.map((slide, idx) => (
-                        <div key={slide.id} className="p-3.5 bg-zinc-950 border border-white/10 rounded-xl flex gap-3 h-32 items-stretch">
-                          <div className="w-20 rounded overflow-hidden bg-black/50 border border-white/5 flex-shrink-0 relative">
+                        <div key={slide.id} className="p-3 sm:p-3.5 bg-zinc-950 border border-white/10 rounded-xl flex flex-col sm:flex-row gap-3 min-h-[8.5rem] h-auto items-stretch">
+                          <div className="w-full h-24 sm:w-20 sm:h-auto rounded overflow-hidden bg-black/50 border border-white/5 shrink-0 relative">
                             {slide.videoUrl ? (
                               <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 border border-white/5">
                                 <Film className="w-6 h-6 text-accent" />
@@ -1828,7 +2229,7 @@ export default function AdminMediaSettings({
                             )}
                           </div>
 
-                          <div className="flex-1 flex flex-col justify-between min-w-0">
+                          <div className="flex-1 flex flex-col justify-between min-w-0 space-y-2">
                             <div className="space-y-1.5">
                               <input 
                                 type="text" 
@@ -1841,11 +2242,11 @@ export default function AdminMediaSettings({
                                 onChange={(e) => updateMemoryField(idx, 'description', e.target.value, true)}
                                 placeholder="Caption detail..."
                                 rows={2}
-                                className="w-full bg-white/5 border border-white/10 px-2 py-0.5 rounded text-[10px] focus:border-accent outline-none text-zinc-300 resize-none h-12 leading-tight"
+                                className="w-full bg-white/5 border border-white/10 px-2 py-1 rounded text-[10px] focus:border-accent outline-none text-zinc-300 resize-none min-h-[44px] leading-tight"
                               />
                             </div>
                             
-                            <div className="flex justify-between items-center">
+                            <div className="flex justify-between items-center pt-1 border-t border-white/5">
                               <span className="text-[8px] uppercase tracking-widest text-zinc-500 font-bold">Slide {idx + 1}</span>
                               <button
                                 type="button"
@@ -1876,7 +2277,7 @@ export default function AdminMediaSettings({
                   <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center border border-white/10 text-zinc-500">
                     ✏️
                   </div>
-                  <p className="text-xs text-zinc-400 font-medium max-w-xs">Choose any active card row from the interactive dropdown list above to modify covers, captions, or add up to 300 slides of media!</p>
+                  <p className="text-xs text-zinc-400 font-medium max-w-xs">Select any card from the Grid, List, or Dropdown view above to modify covers, edit captions, or manage up to 10,000 media slides!</p>
                 </div>
               )}
             </div>
@@ -1884,10 +2285,10 @@ export default function AdminMediaSettings({
 
           {/* TAB: CATEGORIES MANAGER & EDITING */}
           {activeTab === 'categories' && (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start animate-fadeIn" id="categories-tab-container">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start animate-fadeIn" id="categories-tab-container">
               {/* Left Column: Create New Category */}
-              <div className="md:col-span-5 space-y-4">
-                <form onSubmit={handleCreateCategoryDirect} className="p-5 bg-white/5 rounded-xl border border-white/5 space-y-4">
+              <div className="lg:col-span-5 space-y-4">
+                <form onSubmit={handleCreateCategoryDirect} className="p-4 sm:p-5 bg-white/5 rounded-xl border border-white/5 space-y-4">
                   <div className="flex items-center justify-between border-b border-white/5 pb-2">
                     <h3 className="text-xs font-black uppercase tracking-widest text-accent flex items-center gap-1.5">
                       <FolderPlus className="w-3.5 h-3.5" /> Create New Category
@@ -1964,8 +2365,8 @@ export default function AdminMediaSettings({
               </div>
 
               {/* Right Column: Manage & Edit Existing Categories */}
-              <div className="md:col-span-7 space-y-4">
-                <div className="p-5 bg-zinc-950/60 rounded-xl border border-white/5 space-y-4">
+              <div className="lg:col-span-7 space-y-4">
+                <div className="p-4 sm:p-5 bg-zinc-950/60 rounded-xl border border-white/5 space-y-4">
                   <div className="flex items-center justify-between border-b border-white/5 pb-2">
                     <h3 className="text-xs font-black uppercase tracking-widest text-zinc-300 flex items-center gap-1.5">
                       <Tag className="w-3.5 h-3.5 text-accent" /> Manage App Categories
@@ -2009,12 +2410,12 @@ export default function AdminMediaSettings({
                                     Will update {cardCount} associated episode card{cardCount !== 1 ? 's' : ''}
                                   </span>
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex flex-wrap sm:flex-nowrap gap-2">
                                   <input
                                     type="text"
                                     value={editingCatNameValue}
                                     onChange={(e) => setEditingCatNameValue(e.target.value)}
-                                    className="flex-1 bg-zinc-950 border border-white/15 p-2 rounded-lg text-xs text-white font-medium focus:border-accent outline-none"
+                                    className="flex-1 min-w-[130px] bg-zinc-950 border border-white/15 p-2 rounded-lg text-xs text-white font-medium focus:border-accent outline-none"
                                     autoFocus
                                     placeholder="Enter new category name..."
                                   />
@@ -2022,7 +2423,7 @@ export default function AdminMediaSettings({
                                     type="button"
                                     disabled={isSaving || !editingCatNameValue.trim()}
                                     onClick={() => handleRenameCategory(catName, editingCatNameValue, customDoc?.id)}
-                                    className="px-3 py-2 bg-accent text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:opacity-90 disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                                    className="px-3 py-2 bg-accent text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:opacity-90 disabled:opacity-50 flex items-center gap-1 cursor-pointer shrink-0"
                                   >
                                     <Check className="w-3.5 h-3.5" /> Save
                                   </button>
@@ -2033,7 +2434,7 @@ export default function AdminMediaSettings({
                                       setEditingCatDocId(null);
                                       setEditingCatNameValue('');
                                     }}
-                                    className="px-2.5 py-2 bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white rounded-lg text-xs transition-all cursor-pointer"
+                                    className="px-2.5 py-2 bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white rounded-lg text-xs transition-all cursor-pointer shrink-0"
                                   >
                                     <X className="w-3.5 h-3.5" />
                                   </button>
@@ -2112,11 +2513,11 @@ export default function AdminMediaSettings({
 
           {/* TAB 3: DAILY NOTES CREATOR / MANAGER */}
           {activeTab === 'daily_notes' && (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start" id="daily-notes-tab-container">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start" id="daily-notes-tab-container">
               
               {/* Form to Create Custom Daily Note */}
-              <div className="md:col-span-5 space-y-4">
-                <form onSubmit={handleSaveDailyNote} className="p-5 bg-white/5 rounded-xl border border-white/5 space-y-4">
+              <div className="lg:col-span-5 space-y-4">
+                <form onSubmit={handleSaveDailyNote} className="p-4 sm:p-5 bg-white/5 rounded-xl border border-white/5 space-y-4">
                   <h3 className="text-xs font-black uppercase tracking-widest text-accent flex items-center gap-1.5 border-b border-white/5 pb-2">
                     ✨ Compose Custom Daily Note
                   </h3>
@@ -2166,7 +2567,7 @@ export default function AdminMediaSettings({
                   <button
                     type="submit"
                     disabled={isSaving}
-                    className="w-full py-3 bg-accent text-white hover:opacity-95 disabled:opacity-55 flex items-center justify-center gap-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-accent/20"
+                    className="w-full py-3 bg-accent text-white hover:opacity-95 disabled:opacity-55 flex items-center justify-center gap-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-accent/20 cursor-pointer"
                   >
                     <span>🤍</span> Publish Thought Stream
                   </button>
@@ -2174,7 +2575,7 @@ export default function AdminMediaSettings({
               </div>
 
               {/* Live list of Custom Daily Notes */}
-              <div className="md:col-span-7 space-y-4">
+              <div className="lg:col-span-7 space-y-4">
                 <div className="p-4 bg-zinc-950/40 rounded-xl border border-white/5 space-y-3">
                   <div className="flex justify-between items-center border-b border-white/5 pb-2">
                     <h3 className="text-xs font-black uppercase tracking-widest text-zinc-300">
@@ -2303,7 +2704,7 @@ export default function AdminMediaSettings({
                   <User className="w-4 h-4" /> 2. Profile Screen Cast Cards
                 </h4>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                   {/* Girlfriend Cast */}
                   <div className="border border-white/10 p-4 rounded bg-zinc-900/50 space-y-3">
                     <span className="text-[10px] font-black uppercase text-accent tracking-widest block border-b border-white/5 pb-1">
@@ -2428,7 +2829,7 @@ export default function AdminMediaSettings({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 pt-1">
                   {/* Girlfriend Specific Backdrop */}
                   <div className="border border-white/5 p-5 rounded-xl bg-zinc-900/40 space-y-4 hover:border-accent/20 transition-colors flex flex-col justify-between">
                     <div className="space-y-4">
@@ -2742,18 +3143,18 @@ export default function AdminMediaSettings({
               </div>
 
               {/* SAVE FORM ACTIONS */}
-              <div className="flex gap-3 justify-end pt-2">
+              <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end pt-2">
                 <button 
                   type="button" 
                   onClick={onClose}
-                  className="px-6 py-2.5 rounded text-xs font-black uppercase tracking-widest border border-white/10 hover:bg-white/5 text-zinc-300 hover:text-white transition-all animate-fadeIn"
+                  className="w-full sm:w-auto px-6 py-2.5 rounded text-xs font-black uppercase tracking-widest border border-white/10 hover:bg-white/5 text-zinc-300 hover:text-white transition-all text-center cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
                   disabled={isSaving}
-                  className="px-8 py-2.5 rounded text-xs font-black uppercase tracking-widest bg-accent hover:bg-accent/90 text-white flex items-center gap-2 transition-all shadow-lg cursor-pointer"
+                  className="w-full sm:w-auto px-8 py-2.5 rounded text-xs font-black uppercase tracking-widest bg-accent hover:bg-accent/90 text-white flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer"
                 >
                   {isSaving ? (
                     <>

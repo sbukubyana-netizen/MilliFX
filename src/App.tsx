@@ -16,7 +16,6 @@ import InteractiveQuiz from './components/InteractiveQuiz';
 import CreditsSection from './components/CreditsSection';
 import ImageModal from './components/ImageModal';
 import CountdownPage from './components/CountdownPage';
-import BackgroundMusic from './components/BackgroundMusic';
 import Notification from './components/Notification';
 import CelebrationPortal from './components/CelebrationPortal';
 import LoveLetter from './components/LoveLetter';
@@ -29,77 +28,7 @@ import AppBackground from './components/AppBackground';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { PlayCircle } from 'lucide-react';
-
-// Helper functions for dynamic 1 to 100 and 1 to 300 URL sequence expansion support
-function expandMediaUrls(urls: string[]): string[] {
-  if (!urls || !Array.isArray(urls)) return [];
-  const result: string[] = [];
-  const flattened: string[] = [];
-  
-  // Robustly split any elements that contain commas, semicolons, or newlines
-  for (const url of urls) {
-    if (!url || typeof url !== 'string') continue;
-    const parts = url.split(/[,\n;]/).map(p => p.trim()).filter(p => p.length > 0);
-    flattened.push(...parts);
-  }
-
-  for (const url of flattened) {
-    const trimmed = url.trim();
-    if (!trimmed) continue;
-    const match = trimmed.match(/^(.*?)(\w+?)(100|300)(\.[a-zA-Z0-9]+)?$/);
-    if (match) {
-      const prefixPath = match[1];
-      const baseName = match[2];
-      const count = parseInt(match[3], 10);
-      const ext = match[4] || (baseName.toLowerCase().includes('video') || prefixPath.toLowerCase().includes('video') ? '.mp4' : '.jpg');
-      for (let i = 1; i <= count; i++) {
-        result.push(`${prefixPath}${baseName}${i}${ext}`);
-      }
-    } else {
-      result.push(trimmed);
-    }
-  }
-  return result;
-}
-
-function expandEpisodeMemories(images: Memory[]): Memory[] {
-  if (!images || !Array.isArray(images)) return [];
-  const result: Memory[] = [];
-  images.forEach(img => {
-    if (!img) return;
-    const trimmedImgUrl = img.imageUrl?.trim() || '';
-    const trimmedVideoUrl = img.videoUrl?.trim() || '';
-    
-    const isImgMatch = trimmedImgUrl.match(/^(.*?)(\w+?)(100|300)(\.[a-zA-Z0-9]+)?$/);
-    const isVidMatch = trimmedVideoUrl.match(/^(.*?)(\w+?)(100|300)(\.[a-zA-Z0-9]+)?$/);
-    
-    if (isImgMatch || isVidMatch) {
-      const prefixPath = isImgMatch ? isImgMatch[1] : isVidMatch![1];
-      const baseName = isImgMatch ? isImgMatch[2] : isVidMatch![2];
-      const matchRange = isImgMatch ? isImgMatch[3] : isVidMatch![3];
-      const maxCount = parseInt(matchRange, 10);
-      const extImg = isImgMatch ? (isImgMatch[4] || '.jpg') : '.jpg';
-      const extVid = isVidMatch ? (isVidMatch[4] || '.mp4') : '.mp4';
-      
-      for (let i = 1; i <= maxCount; i++) {
-        const id = `${img.id || 'slide'}-range-${i}`;
-        const itemImgUrl = `${prefixPath}${baseName}${i}${extImg}`;
-        const itemVideoUrl = isVidMatch ? `${prefixPath}${baseName}${i}${extVid}` : undefined;
-        
-        result.push({
-          id,
-          title: `${img.title || 'Moments'} #${i}`,
-          imageUrl: itemImgUrl,
-          videoUrl: itemVideoUrl,
-          description: img.description ? `${img.description} (${i}/${maxCount})` : undefined
-        });
-      }
-    } else {
-      result.push(img);
-    }
-  });
-  return result;
-}
+import { expandMediaUrls, expandEpisodeMemories } from './utils/urlExpander';
 
 function AnimatedSection({
   id,
@@ -1032,7 +961,6 @@ export default function App() {
               )}
             </AnimatePresence>
 
-            <BackgroundMusic isVisible={stage === 'home'} />
             <Notification />
             <LoveLetter isVisible={stage === 'home'} profile={selectedProfile} />
 

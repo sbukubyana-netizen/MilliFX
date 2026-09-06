@@ -228,28 +228,28 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
   }
 
   return (
-    <div className="space-y-8 animate-fadeIn py-2 max-w-5xl mx-auto">
+    <div className="space-y-6 sm:space-y-8 animate-fadeIn py-1 sm:py-2 max-w-5xl mx-auto">
       
       {/* Top Banner / Actions */}
-      <div className="bg-zinc-950/80 p-6 rounded-2xl border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+      <div className="bg-zinc-950/80 p-4 sm:p-6 rounded-2xl border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-accent text-[10px] font-black uppercase tracking-wider">
             <Clapperboard className="w-3 h-3" />
             <span>Movie Finale Studio</span>
           </div>
-          <h3 className="text-lg font-black text-white uppercase tracking-wider">
+          <h3 className="text-base sm:text-lg font-black text-white uppercase tracking-wider">
             Movie Credits & Background Media Customizer
           </h3>
-          <p className="text-xs text-zinc-400 max-w-xl">
+          <p className="text-xs text-zinc-400 max-w-xl leading-relaxed">
             Edit the cinematic rolling credits, customize cast & crew roles, add romantic titles, and set a custom background video or image!
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
           <button
             type="button"
             onClick={handleResetDefaults}
-            className="px-3.5 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-xl text-xs font-bold uppercase tracking-wider border border-white/10 transition-all cursor-pointer"
+            className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-xl text-xs font-bold uppercase tracking-wider border border-white/10 transition-all cursor-pointer text-center"
           >
             Reset Defaults
           </button>
@@ -257,7 +257,7 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
             type="button"
             disabled={isSaving}
             onClick={handleSave}
-            className="px-6 py-2.5 bg-accent hover:opacity-95 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg shadow-accent/25 cursor-pointer disabled:opacity-50"
+            className="flex-1 sm:flex-initial px-5 sm:px-6 py-2.5 bg-accent hover:opacity-95 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg shadow-accent/25 cursor-pointer disabled:opacity-50 text-center"
           >
             {isSaving ? (
               <>
@@ -275,8 +275,8 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
       </div>
 
       {/* SECTION 1: BACKGROUND MEDIA SETTINGS */}
-      <div className="bg-zinc-950/70 p-6 rounded-2xl border border-white/10 space-y-6 shadow-lg">
-        <div className="flex items-center justify-between border-b border-white/5 pb-4">
+      <div className="bg-zinc-950/70 p-4 sm:p-6 rounded-2xl border border-white/10 space-y-5 sm:space-y-6 shadow-lg">
+        <div className="flex items-center justify-between border-b border-white/5 pb-3 sm:pb-4">
           <div className="space-y-1">
             <h4 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
               <Film className="w-4 h-4 text-accent" />
@@ -289,7 +289,7 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
         </div>
 
         {/* Media Type Selector */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
           {[
             { id: 'none', label: 'Pure Black Cinema', desc: 'Classic Hollywood contrast', icon: Film },
             { id: 'image', label: 'Background Image', desc: 'Custom photo or wallpaper', icon: ImageIcon },
@@ -302,7 +302,7 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
                 key={type.id}
                 type="button"
                 onClick={() => setBgType(type.id as any)}
-                className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                className={`p-3.5 sm:p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2.5 sm:gap-3 ${
                   isSelected 
                     ? 'bg-accent/15 border-accent text-white shadow-md' 
                     : 'bg-zinc-900/50 border-white/5 text-zinc-400 hover:text-white hover:border-white/15'
@@ -328,17 +328,17 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
               <label className="text-xs font-bold text-zinc-300 uppercase tracking-wider block">
                 {bgType === 'video' ? 'Background Video URL (.mp4)' : 'Background Image URL'}
               </label>
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3">
                 <input
                   type="url"
                   placeholder={bgType === 'video' ? "https://example.com/ambient-loop.mp4" : "https://images.unsplash.com/..."}
                   value={bgMediaUrl}
                   onChange={(e) => setBgMediaUrl(e.target.value)}
-                  className="w-full px-4 py-3 bg-zinc-900 border border-white/10 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-accent font-mono"
+                  className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 bg-zinc-900 border border-white/10 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-accent font-mono"
                 />
                 
                 {/* Upload from Device button */}
-                <label className="px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-zinc-300 hover:text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer shrink-0 transition-all">
+                <label className="px-4 py-2.5 sm:py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-zinc-300 hover:text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer shrink-0 transition-all">
                   <Upload className="w-4 h-4 text-accent" />
                   <span>Upload File</span>
                   <input
@@ -363,7 +363,7 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
               <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
                 Or choose from romantic atmosphere presets:
               </span>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
                 {PRESET_BACKGROUNDS.map((preset, idx) => (
                   <button
                     key={idx}
@@ -372,7 +372,7 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
                       setBgType(preset.type);
                       setBgMediaUrl(preset.url);
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-zinc-900 border border-white/5 hover:border-accent/40 text-[11px] text-zinc-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
+                    className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-zinc-900 border border-white/5 hover:border-accent/40 text-[11px] text-zinc-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5"
                   >
                     {preset.type === 'video' ? <Video className="w-3 h-3 text-accent" /> : <ImageIcon className="w-3 h-3 text-accent" />}
                     <span>{preset.name}</span>
@@ -406,7 +406,7 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
 
             {/* Mini Atmosphere Preview */}
             {bgMediaUrl && (
-              <div className="relative h-44 rounded-xl overflow-hidden border border-white/10 bg-black flex items-center justify-center">
+              <div className="relative h-36 sm:h-44 rounded-xl overflow-hidden border border-white/10 bg-black flex items-center justify-center">
                 {bgType === 'image' ? (
                   <img
                     src={bgMediaUrl}
@@ -427,11 +427,11 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
                   />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/60 pointer-events-none" />
-                <div className="absolute z-10 text-center space-y-1">
+                <div className="absolute z-10 text-center space-y-1 px-4">
                   <div className="text-[10px] font-mono tracking-widest text-accent uppercase font-black">
                     Live Background Preview
                   </div>
-                  <div className="text-sm font-serif font-black text-white uppercase tracking-wider">
+                  <div className="text-xs sm:text-sm font-serif font-black text-white uppercase tracking-wider">
                     {title || "MilliSbu Original Production"}
                   </div>
                 </div>
@@ -442,13 +442,13 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
       </div>
 
       {/* SECTION 2: PRODUCTION TITLES & CLOSING QUOTE */}
-      <div className="bg-zinc-950/70 p-6 rounded-2xl border border-white/10 space-y-5 shadow-lg">
+      <div className="bg-zinc-950/70 p-4 sm:p-6 rounded-2xl border border-white/10 space-y-4 sm:space-y-5 shadow-lg">
         <h4 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2 border-b border-white/5 pb-3">
           <Sparkles className="w-4 h-4 text-accent" />
           Production Titles & Romantic Closing Quote
         </h4>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-zinc-300 uppercase tracking-wider">
               Main Production Title
@@ -459,7 +459,7 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
               onChange={(e) => setTitle(e.target.value)}
               placeholder="MilliSbu Original Production"
               maxLength={120}
-              className="w-full px-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-accent"
+              className="w-full px-3.5 sm:px-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-accent"
             />
           </div>
 
@@ -473,7 +473,7 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
               onChange={(e) => setSubtitle(e.target.value)}
               placeholder="Season 1: Still deeply in love with you 🤍"
               maxLength={150}
-              className="w-full px-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-accent"
+              className="w-full px-3.5 sm:px-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-accent"
             />
           </div>
         </div>
@@ -488,14 +488,14 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
             rows={2}
             maxLength={350}
             placeholder="Every single frame of our lives is brighter because of you..."
-            className="w-full px-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-accent resize-none leading-relaxed"
+            className="w-full px-3.5 sm:px-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-accent resize-none leading-relaxed"
           />
         </div>
       </div>
 
       {/* SECTION 3: CAST, CATEGORIES & CREDITS ROLL DATA */}
-      <div className="bg-zinc-950/70 p-6 rounded-2xl border border-white/10 space-y-6 shadow-lg">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+      <div className="bg-zinc-950/70 p-4 sm:p-6 rounded-2xl border border-white/10 space-y-5 sm:space-y-6 shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-b border-white/5 pb-3 sm:pb-4">
           <div className="space-y-1">
             <h4 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
               <Heart className="w-4 h-4 text-accent" />
@@ -507,19 +507,19 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
           </div>
 
           {/* Add Category input */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <input
               type="text"
               placeholder="New Category (e.g. SOUNDTRACK)..."
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
-              className="px-3 py-2 bg-zinc-900 border border-white/10 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-accent"
+              className="flex-1 sm:w-56 px-3 py-2 bg-zinc-900 border border-white/10 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-accent"
             />
             <button
               type="button"
               onClick={handleAddCategory}
-              className="px-3.5 py-2 bg-accent text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer shrink-0 hover:opacity-95"
+              className="px-3.5 py-2 bg-accent text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1 cursor-pointer shrink-0 hover:opacity-95"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add</span>
@@ -528,7 +528,7 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
         </div>
 
         {/* Category Accordion / List */}
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {sections.map((cat, catIdx) => {
             const isExpanded = activeCategoryIndex === catIdx;
             return (
@@ -537,25 +537,25 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
                 className="border border-white/10 rounded-2xl overflow-hidden bg-zinc-900/40"
               >
                 {/* Category Header */}
-                <div className="px-4 py-3 bg-zinc-900/90 border-b border-white/5 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 flex-1">
+                <div className="px-3 sm:px-4 py-3 bg-zinc-900/90 border-b border-white/5 flex items-center justify-between gap-2 sm:gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                     <button
                       type="button"
                       onClick={() => setActiveCategoryIndex(isExpanded ? null : catIdx)}
-                      className="text-xs font-black uppercase tracking-wider text-accent flex items-center gap-2 text-left cursor-pointer hover:underline"
+                      className="text-xs font-black uppercase tracking-wider text-accent flex items-center gap-1.5 sm:gap-2 text-left cursor-pointer hover:underline truncate"
                     >
-                      <span>{catIdx + 1}.</span>
-                      <span>{cat.category}</span>
-                      <span className="text-[10px] text-zinc-500 font-mono">({cat.entries.length} roles)</span>
+                      <span className="shrink-0">{catIdx + 1}.</span>
+                      <span className="truncate">{cat.category}</span>
+                      <span className="text-[10px] text-zinc-500 font-mono shrink-0">({cat.entries.length})</span>
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                     <input
                       type="text"
                       value={cat.category}
                       onChange={(e) => handleUpdateCategoryTitle(catIdx, e.target.value)}
-                      className="hidden sm:block px-2.5 py-1 bg-black/40 border border-white/10 rounded text-[11px] font-mono text-zinc-300 focus:outline-none focus:border-accent"
+                      className="hidden md:block w-36 px-2.5 py-1 bg-black/40 border border-white/10 rounded text-[11px] font-mono text-zinc-300 focus:outline-none focus:border-accent"
                       title="Quick rename category"
                     />
                     <button
@@ -579,21 +579,24 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
 
                 {/* Category Entries Table */}
                 {isExpanded && (
-                  <div className="p-4 space-y-3 bg-black/30">
-                    <div className="grid grid-cols-12 gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 px-2">
+                  <div className="p-3 sm:p-4 space-y-3 bg-black/30">
+                    {/* Header: visible on md+ screens */}
+                    <div className="hidden md:grid grid-cols-12 gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 px-2">
                       <div className="col-span-4">Role / Title</div>
                       <div className="col-span-4">Person / Credited Name</div>
                       <div className="col-span-3">Romantic Note (Optional)</div>
                       <div className="col-span-1 text-right">Actions</div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2.5 sm:space-y-2">
                       {cat.entries.map((entry, entryIdx) => (
                         <div 
                           key={entryIdx}
-                          className="grid grid-cols-12 gap-2 items-center bg-zinc-950/60 p-2 rounded-xl border border-white/5 hover:border-white/15 transition-all"
+                          className="bg-zinc-950/60 p-3 sm:p-2 rounded-xl border border-white/5 hover:border-white/15 transition-all space-y-2 md:space-y-0 md:grid md:grid-cols-12 md:gap-2 md:items-center"
                         >
-                          <div className="col-span-4">
+                          {/* Role Field */}
+                          <div className="md:col-span-4 space-y-1 md:space-y-0">
+                            <span className="text-[9px] font-bold uppercase text-zinc-500 block md:hidden">Role / Title</span>
                             <input
                               type="text"
                               value={entry.role}
@@ -603,7 +606,9 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
                             />
                           </div>
 
-                          <div className="col-span-4">
+                          {/* Name Field */}
+                          <div className="md:col-span-4 space-y-1 md:space-y-0">
+                            <span className="text-[9px] font-bold uppercase text-zinc-500 block md:hidden">Credited Name</span>
                             <input
                               type="text"
                               value={entry.name}
@@ -613,7 +618,9 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
                             />
                           </div>
 
-                          <div className="col-span-3">
+                          {/* Note Field */}
+                          <div className="md:col-span-3 space-y-1 md:space-y-0">
+                            <span className="text-[9px] font-bold uppercase text-zinc-500 block md:hidden">Note</span>
                             <input
                               type="text"
                               value={entry.note || ''}
@@ -623,14 +630,16 @@ export default function AdminCreditsSettings({ onSuccess }: AdminCreditsSettings
                             />
                           </div>
 
-                          <div className="col-span-1 text-right">
+                          {/* Action / Delete Button */}
+                          <div className="md:col-span-1 flex items-center justify-end pt-1 md:pt-0">
                             <button
                               type="button"
                               onClick={() => handleDeleteEntry(catIdx, entryIdx)}
-                              className="p-1.5 text-zinc-500 hover:text-red-400 transition-colors cursor-pointer"
+                              className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-[11px] md:text-xs"
                               title="Delete role"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-3.5 h-3.5 text-red-400 md:text-zinc-500 md:hover:text-red-400" />
+                              <span className="md:hidden text-red-400 font-bold">Remove</span>
                             </button>
                           </div>
                         </div>

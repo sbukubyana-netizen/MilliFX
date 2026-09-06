@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Heart, Plus, Trash2, Edit2, Check, X, Mic, Square, Play, Pause, Volume2, Upload, AlertCircle, Music, Mail } from 'lucide-react';
+import { Heart, Plus, Trash2, Edit2, Check, X, Mic, Square, Play, Pause, Volume2, Upload, AlertCircle, Music, Mail, ArrowUpDown, ChevronDown } from 'lucide-react';
 import { collection, onSnapshot, setDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 
@@ -197,8 +197,80 @@ interface LoveNotesBoardProps {
   currentUserProfile?: 'Girlfriend' | 'Boyfriend' | 'Us';
 }
 
+export type LoveNotesSortOption = 'newest' | 'oldest' | 'voice_first' | 'milli_first' | 'sbu_first';
+
+const sortLabels: Record<LoveNotesSortOption, string> = {
+  newest: 'Newest First',
+  oldest: 'Oldest First',
+  voice_first: 'Voice Memories First',
+  milli_first: "Milli's Notes First",
+  sbu_first: "Sbu's Notes First",
+};
+
 export default function LoveNotesBoard({ currentUserProfile = 'Us' }: LoveNotesBoardProps) {
   const [notes, setNotes] = useState<StickyNote[]>([]);
+  const [sortBy, setSortBy] = useState<LoveNotesSortOption>('newest');
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
+        setIsSortOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const sortedNotes = useMemo(() => {
+    const list = [...notes];
+    switch (sortBy) {
+      case 'newest':
+        return list.sort((a, b) => {
+          const idA = Number(a.id.replace('note-', '').replace('preset-', '')) || 0;
+          const idB = Number(b.id.replace('note-', '').replace('preset-', '')) || 0;
+          if (idA !== idB) return idB - idA;
+          return (new Date(b.createdAt).getTime() || 0) - (new Date(a.createdAt).getTime() || 0);
+        });
+      case 'oldest':
+        return list.sort((a, b) => {
+          const idA = Number(a.id.replace('note-', '').replace('preset-', '')) || 0;
+          const idB = Number(b.id.replace('note-', '').replace('preset-', '')) || 0;
+          if (idA !== idB) return idA - idB;
+          return (new Date(a.createdAt).getTime() || 0) - (new Date(b.createdAt).getTime() || 0);
+        });
+      case 'voice_first':
+        return list.sort((a, b) => {
+          const hasAudioA = Boolean(a.audioUrl);
+          const hasAudioB = Boolean(b.audioUrl);
+          if (hasAudioA === hasAudioB) {
+            return b.id.localeCompare(a.id);
+          }
+          return hasAudioA ? -1 : 1;
+        });
+      case 'milli_first':
+        return list.sort((a, b) => {
+          const isMilliA = a.sender.toLowerCase().includes('milli');
+          const isMilliB = b.sender.toLowerCase().includes('milli');
+          if (isMilliA === isMilliB) {
+            return b.id.localeCompare(a.id);
+          }
+          return isMilliA ? -1 : 1;
+        });
+      case 'sbu_first':
+        return list.sort((a, b) => {
+          const isSbuA = a.sender.toLowerCase().includes('sbu');
+          const isSbuB = b.sender.toLowerCase().includes('sbu');
+          if (isSbuA === isSbuB) {
+            return b.id.localeCompare(a.id);
+          }
+          return isSbuA ? -1 : 1;
+        });
+      default:
+        return list;
+    }
+  }, [notes, sortBy]);
   
   const handleSendEmailNotification = () => {
     let recipient = '';
@@ -528,23 +600,82 @@ export default function LoveNotesBoard({ currentUserProfile = 'Us' }: LoveNotesB
 
       <div className="max-w-6xl mx-auto space-y-12">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-          <div className="space-y-3 min-w-0 flex-1">
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 lg:gap-8">
+          <div className="space-y-3 min-w-0 flex-1 max-w-3xl">
             <div className="flex items-center gap-2">
-              <Heart className="w-5 h-5 text-accent fill-accent animate-pulse" />
-              <span className="text-accent font-black uppercase tracking-[0.3em] text-xs md:text-sm shrink-0">
+              <Heart className="w-5 h-5 text-accent fill-accent animate-pulse shrink-0" />
+              <span className="text-accent font-black uppercase tracking-[0.2em] md:tracking-[0.25em] text-xs md:text-sm shrink-0">
                 The Cozy Corner
               </span>
             </div>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tighter breakdown-words">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight break-words">
               Our Messages Jar
             </h2>
-            <p className="text-text-dim text-xs md:text-sm max-w-xl">
-              Pin a sweet note, leaves a recorded voice memo, write an inside joke, or commit a tiny romantic promise. Completely persistent & beautiful forever 🤍
+            <p className="text-zinc-300 md:text-zinc-200 text-xs sm:text-sm md:text-base max-w-2xl leading-relaxed font-normal">
+              Pin a sweet note, leave a recorded voice memo, write an inside joke, or commit a tiny romantic promise. Completely persistent & beautiful forever 🤍
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 self-start md:self-end">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 self-start lg:self-end pt-2 lg:pt-0">
+            {/* Sort Button and Dropdown Menu */}
+            <div className="relative" ref={sortRef}>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                type="button"
+                onClick={() => setIsSortOpen(!isSortOpen)}
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/15 text-white border border-white/10 px-4 py-3 rounded-full font-bold text-xs uppercase tracking-widest transition-all cursor-pointer shadow-md"
+                title="Sort messages"
+                id="love-notes-sort-button"
+              >
+                <ArrowUpDown className="w-4 h-4 text-accent" />
+                <span>Sort: <span className="text-accent">{sortLabels[sortBy]}</span></span>
+                <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${isSortOpen ? 'rotate-180' : ''}`} />
+              </motion.button>
+
+              {/* Dropdown Menu */}
+              <AnimatePresence>
+                {isSortOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-full mt-2 w-60 rounded-2xl bg-zinc-950/95 border border-white/15 shadow-2xl p-2 z-50 backdrop-blur-xl space-y-1"
+                    id="love-notes-sort-dropdown"
+                  >
+                    <div className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-zinc-400 border-b border-white/5 flex items-center justify-between">
+                      <span>Sort Messages By</span>
+                      <span className="text-accent font-mono">{notes.length} notes</span>
+                    </div>
+                    <div className="pt-1 space-y-0.5">
+                      {(Object.keys(sortLabels) as LoveNotesSortOption[]).map((option) => {
+                        const isSelected = sortBy === option;
+                        return (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => {
+                              setSortBy(option);
+                              setIsSortOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                              isSelected
+                                ? 'bg-accent text-white shadow-md'
+                                : 'text-zinc-300 hover:bg-white/10 hover:text-white'
+                            }`}
+                          >
+                            <span>{sortLabels[option]}</span>
+                            {isSelected && <Check className="w-3.5 h-3.5" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -590,7 +721,7 @@ export default function LoveNotesBoard({ currentUserProfile = 'Us' }: LoveNotesB
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
             >
               <AnimatePresence mode="popLayout">
-                {notes.map((note) => (
+                {sortedNotes.map((note) => (
                   <motion.div
                     layout
                     key={note.id}
