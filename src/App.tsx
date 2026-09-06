@@ -508,22 +508,23 @@ export default function App() {
     }
   }, [selectedMemoryIndex, activeEpisodeId, updateContinueWatching]);
 
-  // Autoplay Effect
+  // Autoplay Effect & Configurable Slide Interval
+  const [slideshowInterval, setSlideshowInterval] = useState(5000);
+
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
-    // Only auto-advance if not paused and current item is NOT a video
-    // Videos will trigger onNext via their own onEnded event in ImageModal
-    if (selectedMemoryIndex !== null && !isSlideshowPaused && !selectedMemory?.videoUrl) {
+    // Only auto-advance if not paused, not video, and interval > 0
+    if (selectedMemoryIndex !== null && !isSlideshowPaused && !selectedMemory?.videoUrl && slideshowInterval > 0) {
       timer = setTimeout(() => {
         if (selectedMemoryIndex < currentCollection.length - 1) {
           handleNextMemory();
         } else {
           setSelectedMemoryIndex(0);
         }
-      }, 5000); // 5 seconds for images
+      }, slideshowInterval);
     }
     return () => clearTimeout(timer);
-  }, [selectedMemoryIndex, currentCollection.length, handleNextMemory, isSlideshowPaused, selectedMemory?.videoUrl]);
+  }, [selectedMemoryIndex, currentCollection.length, handleNextMemory, isSlideshowPaused, selectedMemory?.videoUrl, slideshowInterval]);
 
   // Scroll Lock Effect
   useEffect(() => {
@@ -893,6 +894,14 @@ export default function App() {
 
             <ImageModal 
               item={selectedMemory} 
+              currentIndex={selectedMemoryIndex !== null ? selectedMemoryIndex : 0}
+              totalCount={currentCollection.length}
+              onSeekIndex={(idx) => {
+                setSelectedMemoryIndex(idx);
+                if (activeEpisodeId) updateContinueWatching(activeEpisodeId, idx);
+              }}
+              slideInterval={slideshowInterval}
+              onSlideIntervalChange={setSlideshowInterval}
               onClose={() => {
                 setSelectedMemoryIndex(null);
                 setActiveEpisodeId(null);

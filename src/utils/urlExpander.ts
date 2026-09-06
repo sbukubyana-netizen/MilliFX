@@ -14,7 +14,11 @@ export function expandSingleUrl(url: string, maxLimit = 10000): string[] {
   const trimmed = url.trim();
   if (!trimmed) return [];
 
-  // Pattern 1: Explicit bracket range e.g. "path/prefix[1-10000].jpg", "{1..10000}", "(1-10000)"
+  // Explicit bracket / brace / parenthesis range e.g.:
+  // - "path/prefix[1-10].jpg"
+  // - "path/prefix{1..10}.jpg"
+  // - "path/prefix(1-10).jpg"
+  // - "[1-10]"
   const bracketMatch = trimmed.match(/^(.*?)(?:\[|\{|\()(\d+)(?:-|\.\.)(\d+)(?:\]|\}|\))(.*)$/);
   if (bracketMatch) {
     const prefix = bracketMatch[1];
@@ -41,34 +45,8 @@ export function expandSingleUrl(url: string, maxLimit = 10000): string[] {
     }
   }
 
-  // Pattern 2: End-of-name number pattern up to 10000 (e.g. video10000.mp4, photo10000.jpg, image100.jpg, 10000.mp4)
-  // Match prefix, non-digit basename or boundary, count number (1 to 5 digits: 1-10000), and optional extension
-  const suffixMatch = trimmed.match(/^(.*?)(\D+?)(?:_|-|)?(\d{1,5})(\.[a-zA-Z0-9]+)?$/);
-  if (suffixMatch) {
-    const prefixPath = suffixMatch[1];
-    const baseName = suffixMatch[2];
-    const count = parseInt(suffixMatch[3], 10);
-    const ext = suffixMatch[4] || (baseName.toLowerCase().includes('video') || prefixPath.toLowerCase().includes('video') ? '.mp4' : '.jpg');
-
-    // Only expand if count is between 1 and 10000
-    if (count >= 1 && count <= maxLimit) {
-      // Differentiate between intentional sequences vs static photo URLs with IDs or dimensions
-      const isSequentialKeyword = /^(.*)?(photo|img|image|pic|picture|video|vid|clip|slide|frame|memory|moment|track|media|scene|ep|episode|item|file|love|milli|sbu|banner)(\D*)$/i.test(baseName);
-      const isMilestoneNumber = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 7500, 10000].includes(count);
-      const hasSequenceDelimiter = trimmed.includes('_') || trimmed.includes('-') || trimmed.endsWith(`${count}${ext || ''}`);
-      const isUnsplashDimension = trimmed.includes('unsplash.com') && (trimmed.includes('?w=') || trimmed.includes('&w=') || trimmed.includes('photo-15'));
-
-      if (!isUnsplashDimension && (isSequentialKeyword || isMilestoneNumber || count === 10000 || hasSequenceDelimiter)) {
-        const results: string[] = [];
-        for (let i = 1; i <= count; i++) {
-          results.push(`${prefixPath}${baseName}${i}${ext}`);
-        }
-        return results;
-      }
-    }
-  }
-
-  // Fallback: single static URL
+  // Exact URL according to user's instructions (e.g. "images/193.jpg" adds ONLY that URL).
+  // Single numbered files must never be automatically expanded into sequences of unwanted images.
   return [trimmed];
 }
 

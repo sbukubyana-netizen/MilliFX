@@ -674,9 +674,14 @@ export default function AdminMediaSettings({
     const newMemories = itemsToAdd.map((url, i) => {
       const slideIndex = currentCount + i + 1;
       const isVideo = url.toLowerCase().endsWith('.mp4') || url.includes('video') || url.startsWith('data:video');
+      const filename = url.split('/').pop()?.split('?')[0] || '';
+      const slideTitle = baseTitle && baseTitle !== 'Moment' && baseTitle !== 'Memories'
+        ? (itemsToAdd.length === 1 ? baseTitle : `${baseTitle} #${slideIndex}`)
+        : (itemsToAdd.length === 1 && filename ? filename : `${baseTitle || 'Moment'} #${slideIndex}`);
+
       return {
         id: `mom-custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        title: `${baseTitle} #${slideIndex}`,
+        title: slideTitle,
         imageUrl: isVideo ? PRESET_COVERS[0].url : url,
         videoUrl: isVideo ? url : undefined,
         description: `A precious chapter of our story, slide ${slideIndex} ✨`
@@ -697,6 +702,12 @@ export default function AdminMediaSettings({
       });
       setUrlRangeInput('');
       setUrlRangeTitle('Moment');
+    }
+
+    if (itemsToAdd.length === 1) {
+      onSuccess(`Added 1 image (${itemsToAdd[0]}) to slide deck!`);
+    } else {
+      onSuccess(`Added ${itemsToAdd.length} images to slide deck!`);
     }
   };
 
@@ -1426,9 +1437,9 @@ export default function AdminMediaSettings({
                     <button
                       type="button"
                       onClick={() => setCardUploaderTab('url_range')}
-                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${cardUploaderTab === 'url_range' ? 'bg-zinc-800 text-white border border-white/5 shadow' : 'text-zinc-400 hover:text-white'}`}
+                      className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${cardUploaderTab === 'url_range' ? 'bg-zinc-800 text-white border border-white/10 shadow-sm' : 'text-zinc-400 hover:text-white'}`}
                     >
-                      🔗 Paste URLs / 1-10000 Range
+                      🔗 Paste Image / Media URLs
                     </button>
                   </div>
 
@@ -1463,16 +1474,24 @@ export default function AdminMediaSettings({
                     <div className="bg-zinc-950/60 p-5 rounded-2xl border border-white/5 space-y-4 animate-fadeIn">
                       <div className="space-y-3">
                         <div>
-                          <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
-                            Web URL or Range Pattern (e.g. video10000.mp4 or [1-10000])
-                          </label>
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <label className="block text-[9px] font-black text-zinc-300 uppercase tracking-widest">
+                              Image / Media URL(s)
+                            </label>
+                            <span className="text-[9px] text-accent/90 font-medium">
+                              Exact URL mode • 1 slide per link
+                            </span>
+                          </div>
                           <textarea 
                             rows={3}
                             value={urlRangeInput}
                             onChange={(e) => setUrlRangeInput(e.target.value)}
-                            placeholder="e.g. https://domain.com/love10000.jpg&#10;or [1-10000] range&#10;or multiple URLs (one per line, up to 10,000)"
-                            className="w-full bg-zinc-900 border border-white/10 p-3 rounded-lg text-[11px] text-white font-mono focus:outline-none focus:border-accent transition-all min-h-[90px]"
+                            placeholder="e.g. images/193.jpg (adds only this specific image)&#10;or paste multiple URLs (one per line)&#10;or bracket range: images/[1-50].jpg"
+                            className="w-full bg-zinc-900 border border-white/15 p-3 rounded-lg text-[11px] text-white font-mono placeholder:text-zinc-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all min-h-[90px]"
                           />
+                          <p className="text-[9px] text-zinc-400 mt-1 flex items-center gap-1">
+                            <span className="text-emerald-400 font-bold">✓</span> Entering a specific URL like <code className="text-zinc-200 bg-white/5 px-1 py-0.5 rounded font-mono">images/193.jpg</code> adds only that exact URL.
+                          </p>
                         </div>
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1481,7 +1500,7 @@ export default function AdminMediaSettings({
                               Base Name of Slides
                             </label>
                             <input 
-                              type="text"
+                              type="text" 
                               value={urlRangeTitle}
                               onChange={(e) => setUrlRangeTitle(e.target.value)}
                               placeholder="e.g. Moments, Memories"
@@ -1492,7 +1511,7 @@ export default function AdminMediaSettings({
                             <button
                               type="button"
                               onClick={() => addUrlRangeSlides(false)}
-                              className="w-full py-2 bg-accent text-white hover:opacity-95 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                              className="w-full py-2 bg-accent hover:bg-accent/90 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.98]"
                             >
                               <Plus className="w-3.5 h-3.5" /> Append Slides
                             </button>
@@ -2106,9 +2125,9 @@ export default function AdminMediaSettings({
                         <button
                           type="button"
                           onClick={() => setEditCardUploaderTab('url_range')}
-                          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${editCardUploaderTab === 'url_range' ? 'bg-zinc-800 text-white border border-white/5 shadow' : 'text-zinc-400 hover:text-white'}`}
+                          className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${editCardUploaderTab === 'url_range' ? 'bg-zinc-800 text-white border border-white/10 shadow-sm' : 'text-zinc-400 hover:text-white'}`}
                         >
-                          🔗 Paste URLs / 1-10000 Range
+                          🔗 Paste Image / Media URLs
                         </button>
                       </div>
 
@@ -2143,16 +2162,24 @@ export default function AdminMediaSettings({
                         <div className="bg-zinc-950/60 p-5 rounded-2xl border border-white/5 space-y-4 animate-fadeIn">
                           <div className="space-y-3">
                             <div>
-                              <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
-                                Web URL or Range Pattern (e.g. video10000.mp4 or [1-10000])
-                              </label>
+                              <div className="flex items-center justify-between gap-2 mb-1.5">
+                                <label className="block text-[9px] font-black text-zinc-300 uppercase tracking-widest">
+                                  Image / Media URL(s)
+                                </label>
+                                <span className="text-[9px] text-accent/90 font-medium">
+                                  Exact URL mode • 1 slide per link
+                                </span>
+                              </div>
                               <textarea 
                                 rows={3}
                                 value={editUrlRangeInput}
                                 onChange={(e) => setEditUrlRangeInput(e.target.value)}
-                                placeholder="e.g. https://domain.com/love10000.jpg&#10;or [1-10000] range&#10;or multiple URLs (one per line, up to 10,000)"
-                                className="w-full bg-zinc-900 border border-white/10 p-3 rounded-lg text-[11px] text-white font-mono focus:outline-none focus:border-accent transition-all min-h-[90px]"
+                                placeholder="e.g. images/193.jpg (adds only this specific image)&#10;or paste multiple URLs (one per line)&#10;or bracket range: images/[1-50].jpg"
+                                className="w-full bg-zinc-900 border border-white/15 p-3 rounded-lg text-[11px] text-white font-mono placeholder:text-zinc-500 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all min-h-[90px]"
                               />
+                              <p className="text-[9px] text-zinc-400 mt-1 flex items-center gap-1">
+                                <span className="text-emerald-400 font-bold">✓</span> Entering a specific URL like <code className="text-zinc-200 bg-white/5 px-1 py-0.5 rounded font-mono">images/193.jpg</code> adds only that exact URL.
+                              </p>
                             </div>
                             
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2161,7 +2188,7 @@ export default function AdminMediaSettings({
                                   Base Name of Slides
                                 </label>
                                 <input 
-                                  type="text"
+                                  type="text" 
                                   value={editUrlRangeTitle}
                                   onChange={(e) => setEditUrlRangeTitle(e.target.value)}
                                   placeholder="e.g. Moments, Memories"
@@ -2172,7 +2199,7 @@ export default function AdminMediaSettings({
                                 <button
                                   type="button"
                                   onClick={() => addUrlRangeSlides(true)}
-                                  className="w-full py-2 bg-accent text-white hover:opacity-95 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                                  className="w-full py-2 bg-accent hover:bg-accent/90 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.98]"
                                 >
                                   <Plus className="w-3.5 h-3.5" /> Append Slides
                                 </button>
