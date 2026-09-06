@@ -139,6 +139,9 @@ export default function App() {
 
   const [studioSettings, setStudioSettings] = useState<{
     trailerVideoUrl: string;
+    girlfriendTrailerUrl?: string;
+    boyfriendTrailerUrl?: string;
+    usTrailerUrl?: string;
     boyfriendProfileImage: string;
     girlfriendProfileImage: string;
     usProfileImage?: string;
@@ -150,6 +153,9 @@ export default function App() {
     colorTheme?: string;
   }>({
     trailerVideoUrl: '/videos/8.mp4',
+    girlfriendTrailerUrl: '/videos/8.mp4',
+    boyfriendTrailerUrl: '/videos/8.mp4',
+    usTrailerUrl: '/videos/8.mp4',
     boyfriendProfileImage: '',
     girlfriendProfileImage: 'images/millicent1.jpg',
     usProfileImage: '',
@@ -168,6 +174,9 @@ export default function App() {
         const data = docSnap.data();
         setStudioSettings({
           trailerVideoUrl: data.trailerVideoUrl || '/videos/8.mp4',
+          girlfriendTrailerUrl: data.girlfriendTrailerUrl || data.trailerVideoUrl || '/videos/8.mp4',
+          boyfriendTrailerUrl: data.boyfriendTrailerUrl || data.trailerVideoUrl || '/videos/8.mp4',
+          usTrailerUrl: data.usTrailerUrl || data.trailerVideoUrl || '/videos/8.mp4',
           boyfriendProfileImage: data.boyfriendProfileImage || '',
           girlfriendProfileImage: data.girlfriendProfileImage || 'images/millicent1.jpg',
           usProfileImage: data.usProfileImage || '',
@@ -187,6 +196,9 @@ export default function App() {
 
   const handleUpdateStudioSettings = async (settings: {
     trailerVideoUrl: string;
+    girlfriendTrailerUrl?: string;
+    boyfriendTrailerUrl?: string;
+    usTrailerUrl?: string;
     boyfriendProfileImage: string;
     girlfriendProfileImage: string;
     usProfileImage: string;
@@ -212,6 +224,9 @@ export default function App() {
     try {
       await handleUpdateStudioSettings({
         trailerVideoUrl: studioSettings.trailerVideoUrl,
+        girlfriendTrailerUrl: studioSettings.girlfriendTrailerUrl,
+        boyfriendTrailerUrl: studioSettings.boyfriendTrailerUrl,
+        usTrailerUrl: studioSettings.usTrailerUrl,
         boyfriendProfileImage: studioSettings.boyfriendProfileImage,
         girlfriendProfileImage: studioSettings.girlfriendProfileImage,
         usProfileImage: studioSettings.usProfileImage || '',
@@ -227,11 +242,28 @@ export default function App() {
     }
   };
 
-  // View & Like Tracking State
+  // View & Like Tracking State - Reset all views to zero as requested
   const [userStats, setUserStats] = useState<{ [key: string]: { views: number, likes: number } }>(() => {
     try {
-      const saved = localStorage.getItem('millifix_stats');
-      return saved ? JSON.parse(saved) : {};
+      const savedV3 = localStorage.getItem('millifix_stats_v3');
+      if (savedV3) {
+        return JSON.parse(savedV3);
+      }
+      // Migrate likes if existing, but reset views to 0
+      const old = localStorage.getItem('millifix_stats');
+      if (old) {
+        const parsed = JSON.parse(old);
+        const resetData: { [key: string]: { views: number, likes: number } } = {};
+        for (const key in parsed) {
+          resetData[key] = {
+            views: 0,
+            likes: parsed[key]?.likes || 0
+          };
+        }
+        localStorage.setItem('millifix_stats_v3', JSON.stringify(resetData));
+        return resetData;
+      }
+      return {};
     } catch (e) {
       console.error('Error parsing millifix_stats from localStorage:', e);
       return {};
@@ -332,7 +364,7 @@ export default function App() {
     );
     
     if (selectedProfile === 'Boyfriend' || selectedProfile === 'Us') {
-      return uniqueCustomCats;
+      return ['Global Top 10 in MilliSbu', ...uniqueCustomCats];
     }
 
     const result: string[] = (CATEGORIES as string[]).filter(
@@ -419,20 +451,43 @@ export default function App() {
 
   const selectedMemory = selectedMemoryIndex !== null ? currentCollection[selectedMemoryIndex] : null;
 
+  // Memories tailored to the active profile for Top 10
+  const profileMemories = useMemo(() => {
+    const epMemories = allEpisodes.flatMap(ep => ep.images || []);
+    // Supplement with RAW_MEMORIES to ensure Top 10 has at least 10 cards across all profiles
+    const combined = [...epMemories];
+    for (const mem of RAW_MEMORIES) {
+      if (!combined.some(m => m.id === mem.id)) {
+        combined.push(mem);
+      }
+      if (combined.length >= 10) break;
+    }
+    return combined;
+  }, [allEpisodes]);
+
   const dailyTop10 = useMemo(() => {
-    return [...RAW_MEMORIES]
-      .map(item => {
+    return [...profileMemories]
+      .map((item, idx) => {
         const stats = userStats[item.id] || { views: 0, likes: 0 };
-        // Popularity formula: Views + (Likes * 20)
-        // Add a small stable random factor so new items appear too
-        const stableRandom = item.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 5;
-        const score = stats.views + (stats.likes * 20) + stableRandom;
+        // Clean popularity formula: 0 base views. Scores based purely on real views and likes
+        const score = (stats.views * 5) + (stats.likes * 25) - (idx * 0.001);
         return { item, score };
       })
       .sort((a, b) => b.score - a.score)
       .slice(0, 10)
       .map(({ item }) => item);
-  }, [userStats]);
+  }, [profileMemories, userStats]);
+
+  // Current active profile's cinematic trailer URL
+  const currentTrailerUrl = useMemo(() => {
+    if (selectedProfile === 'Boyfriend') {
+      return studioSettings.boyfriendTrailerUrl || studioSettings.trailerVideoUrl || '/videos/8.mp4';
+    }
+    if (selectedProfile === 'Us') {
+      return studioSettings.usTrailerUrl || studioSettings.trailerVideoUrl || '/videos/8.mp4';
+    }
+    return studioSettings.girlfriendTrailerUrl || studioSettings.trailerVideoUrl || '/videos/8.mp4';
+  }, [selectedProfile, studioSettings]);
 
   const handleToggleSound = useCallback(async () => {
     const newSoundEnabled = !studioSettings.backgroundSoundEnabled;
@@ -450,7 +505,7 @@ export default function App() {
     }
   }, [studioSettings, handleUpdateStudioSettings]);
 
-  const handleProfileSelect = useCallback((profile: 'Girlfriend' | 'Boyfriend') => {
+  const handleProfileSelect = useCallback((profile: 'Girlfriend' | 'Boyfriend' | 'Us') => {
     setSelectedProfile(profile);
     localStorage.setItem('millifix_profile', profile);
     setStage('trailer');
@@ -481,8 +536,10 @@ export default function App() {
     const progress = continueWatching.find(p => p.episodeId === episode.id);
     const startIndex = progress ? progress.index : 0;
     
+    // Track full screen view for this episode
+    handleView(episode.id);
     handleSelectMemory(episode.images[startIndex], episode.images, episode.id);
-  }, [continueWatching, handleSelectMemory]);
+  }, [continueWatching, handleSelectMemory, handleView]);
 
   const handleNextMemory = useCallback(() => {
     if (selectedMemoryIndex !== null && selectedMemoryIndex < currentCollection.length - 1) {
@@ -613,7 +670,7 @@ export default function App() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <TrailerPlayer onComplete={handleTrailerComplete} videoUrl={studioSettings.trailerVideoUrl} />
+            <TrailerPlayer onComplete={handleTrailerComplete} videoUrl={currentTrailerUrl} />
           </motion.div>
         )}
 
@@ -732,6 +789,8 @@ export default function App() {
                                   id="search-results-row"
                                   title={`Search Results for "${searchQuery}"`}
                                   episodes={filteredEpisodes}
+                                  userStats={userStats}
+                                  onView={handleView}
                                   onSelectEpisode={handleSelectEpisode} 
                                 />
                               </div>
@@ -747,7 +806,11 @@ export default function App() {
                                     items={dailyTop10} 
                                     userStats={userStats}
                                     onLike={handleLike}
-                                    onSelect={(item) => handleSelectMemory(item, RAW_MEMORIES)} 
+                                    onView={handleView}
+                                    onSelect={(item) => {
+                                      handleView(item.id);
+                                      handleSelectMemory(item, dailyTop10);
+                                    }} 
                                   />
                                 );
                               }
@@ -760,6 +823,8 @@ export default function App() {
                                   id={categoryId}
                                   title={category} 
                                   episodes={episodes} 
+                                  userStats={userStats}
+                                  onView={handleView}
                                   onSelectEpisode={handleSelectEpisode} 
                                 />
                               );

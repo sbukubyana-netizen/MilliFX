@@ -696,6 +696,32 @@ export default function HeroBanner({ onPlayAll, profile, bannerVideos, soundEnab
           {/* Options are now in the dedicated Cinema Control Bar above */}
         </div>
 
+        {/* Pinned Expand/Minimize Button at Top Right Corner - Visible only on mobile devices */}
+        {!isMiniMode && (
+          <button
+            type="button"
+            id="hero-corner-expand-minimize-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsMaximized(!isMaximized);
+            }}
+            className="md:hidden absolute top-4 right-4 sm:top-6 sm:right-6 z-50 p-2 sm:p-2.5 rounded-xl backdrop-blur-md bg-black/60 hover:bg-black/90 border border-white/20 hover:border-accent text-white hover:text-accent shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1.5 group"
+            title={isMaximized ? "Exit Theater Mode (Minimize)" : "Open Theater Mode (Expand)"}
+          >
+            {isMaximized ? (
+              <>
+                <Minimize2 className="w-4 h-4 sm:w-5 sm:h-5 text-accent transition-transform group-hover:scale-110" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-accent hidden sm:inline">Minimize</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="w-4 h-4 sm:w-5 sm:h-5 text-white group-hover:text-accent transition-transform group-hover:scale-110" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-white group-hover:text-accent hidden sm:inline">Expand</span>
+              </>
+            )}
+          </button>
+        )}
+
         {/* Floating Manual Slide Navigation Controls */}
         {activeVideos.length > 1 && !isMiniMode && (
           <>
@@ -806,13 +832,11 @@ export default function HeroBanner({ onPlayAll, profile, bannerVideos, soundEnab
           </motion.div>
         ) : null}
 
-        {/* Cinema Video, Volume, Speed & Slide Control Dock */}
-        {!isMiniMode ? (
+        {/* Cinema Video, Volume, Speed & Slide Control Dock - Only on big screens (hidden on mobile) and removed in theater mode */}
+        {!isMiniMode && !isMaximized ? (
           <div 
             id="hero-cinema-control-dock"
-            className={`absolute bottom-3 sm:bottom-4 left-3 right-3 sm:left-6 sm:right-6 md:left-12 md:right-12 z-40 pointer-events-auto transition-all duration-300 ${
-              isMaximized ? 'bottom-6 md:left-24 md:right-24' : ''
-            }`}
+            className="hidden md:block absolute bottom-3 sm:bottom-4 left-3 right-3 sm:left-6 sm:right-6 md:left-12 md:right-12 z-40 pointer-events-auto transition-all duration-300"
           >
             <div className="bg-zinc-950/90 backdrop-blur-xl rounded-xl border border-white/15 p-2.5 sm:p-3 shadow-[0_20px_50px_rgba(0,0,0,0.9)] flex flex-col gap-2 ring-1 ring-white/5">
               {/* Top Row: Video Scrubber Seek Bar / Slide Progress */}
@@ -1054,8 +1078,10 @@ export default function HeroBanner({ onPlayAll, profile, bannerVideos, soundEnab
               </div>
             </div>
           </div>
-        ) : (
-          /* Quick Hover Control Dock on Mini Player */
+        ) : null}
+
+        {/* Quick Hover Control Dock on Mini Player */}
+        {isMiniMode && (
           <div className="absolute bottom-2 left-2 right-2 z-40 flex items-center justify-between gap-1 bg-black/80 backdrop-blur-md rounded-lg p-1.5 border border-white/10 opacity-0 hover:opacity-100 transition-opacity">
             <button
               type="button"

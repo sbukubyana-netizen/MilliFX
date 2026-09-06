@@ -17,6 +17,9 @@ interface AdminMediaSettingsProps {
   initialTab?: 'create' | 'edit' | 'categories' | 'daily_notes' | 'studio_config' | 'cache_speed' | 'credits_config';
   studioSettings: {
     trailerVideoUrl: string;
+    girlfriendTrailerUrl?: string;
+    boyfriendTrailerUrl?: string;
+    usTrailerUrl?: string;
     boyfriendProfileImage: string;
     girlfriendProfileImage: string;
     usProfileImage?: string;
@@ -29,6 +32,9 @@ interface AdminMediaSettingsProps {
   };
   onUpdateStudioSettings: (settings: {
     trailerVideoUrl: string;
+    girlfriendTrailerUrl?: string;
+    boyfriendTrailerUrl?: string;
+    usTrailerUrl?: string;
     boyfriendProfileImage: string;
     girlfriendProfileImage: string;
     usProfileImage: string;
@@ -430,6 +436,9 @@ export default function AdminMediaSettings({
 
   // --- SECTION 4: STUDIO CONFIG STATE ---
   const [trailerVideoUrl, setTrailerVideoUrl] = useState(studioSettings?.trailerVideoUrl || '/videos/8.mp4');
+  const [girlfriendTrailerUrl, setGirlfriendTrailerUrl] = useState(studioSettings?.girlfriendTrailerUrl || studioSettings?.trailerVideoUrl || '/videos/8.mp4');
+  const [boyfriendTrailerUrl, setBoyfriendTrailerUrl] = useState(studioSettings?.boyfriendTrailerUrl || studioSettings?.trailerVideoUrl || '/videos/8.mp4');
+  const [usTrailerUrl, setUsTrailerUrl] = useState(studioSettings?.usTrailerUrl || studioSettings?.trailerVideoUrl || '/videos/8.mp4');
   const [boyfriendProfileImage, setBoyfriendProfileImage] = useState(studioSettings?.boyfriendProfileImage || '');
   const [girlfriendProfileImage, setGirlfriendProfileImage] = useState(studioSettings?.girlfriendProfileImage || 'images/millicent1.jpg');
   const [usProfileImage, setUsProfileImage] = useState(studioSettings?.usProfileImage || '');
@@ -444,6 +453,9 @@ export default function AdminMediaSettings({
   useEffect(() => {
     if (studioSettings) {
       setTrailerVideoUrl(studioSettings.trailerVideoUrl || '/videos/8.mp4');
+      setGirlfriendTrailerUrl(studioSettings.girlfriendTrailerUrl || studioSettings.trailerVideoUrl || '/videos/8.mp4');
+      setBoyfriendTrailerUrl(studioSettings.boyfriendTrailerUrl || studioSettings.trailerVideoUrl || '/videos/8.mp4');
+      setUsTrailerUrl(studioSettings.usTrailerUrl || studioSettings.trailerVideoUrl || '/videos/8.mp4');
       setBoyfriendProfileImage(studioSettings.boyfriendProfileImage || '');
       setGirlfriendProfileImage(studioSettings.girlfriendProfileImage || 'images/millicent1.jpg');
       setUsProfileImage(studioSettings.usProfileImage || '');
@@ -456,9 +468,9 @@ export default function AdminMediaSettings({
     }
   }, [studioSettings]);
 
-  const handleConfigLocalUpload = (file: File, target: 'trailer' | 'boyfriend' | 'girlfriend' | 'us' | 'banner' | 'boyfriend_banner' | 'girlfriend_banner' | 'us_banner') => {
+  const handleConfigLocalUpload = (file: File, target: 'trailer' | 'girlfriend_trailer' | 'boyfriend_trailer' | 'us_trailer' | 'boyfriend' | 'girlfriend' | 'us' | 'banner' | 'boyfriend_banner' | 'girlfriend_banner' | 'us_banner') => {
     // If it's a video file or trailer, prevent huge video payloads which would crash the Firestore save (max 1MB per document)
-    if (file.type.startsWith('video/') || target === 'trailer') {
+    if (file.type.startsWith('video/') || target.includes('trailer')) {
       if (file.size > 921600) { // 900 KB
         alert(`This video clip is too large (${(file.size / (1024 * 1024)).toFixed(2)}MB). Because Firestore is optimized for light metadata and has a 1MB total document constraint, please upload/provide a video smaller than 900KB, or paste a standard web URL instead!`);
         return;
@@ -517,9 +529,15 @@ export default function AdminMediaSettings({
     reader.readAsDataURL(file);
   };
 
-  const applyConfigValue = (base64: string, target: 'trailer' | 'boyfriend' | 'girlfriend' | 'us' | 'banner' | 'boyfriend_banner' | 'girlfriend_banner' | 'us_banner') => {
+  const applyConfigValue = (base64: string, target: 'trailer' | 'girlfriend_trailer' | 'boyfriend_trailer' | 'us_trailer' | 'boyfriend' | 'girlfriend' | 'us' | 'banner' | 'boyfriend_banner' | 'girlfriend_banner' | 'us_banner') => {
     if (target === 'trailer') {
       setTrailerVideoUrl(base64);
+    } else if (target === 'girlfriend_trailer') {
+      setGirlfriendTrailerUrl(base64);
+    } else if (target === 'boyfriend_trailer') {
+      setBoyfriendTrailerUrl(base64);
+    } else if (target === 'us_trailer') {
+      setUsTrailerUrl(base64);
     } else if (target === 'boyfriend') {
       setBoyfriendProfileImage(base64);
     } else if (target === 'girlfriend') {
@@ -563,6 +581,9 @@ export default function AdminMediaSettings({
 
       await onUpdateStudioSettings({
         trailerVideoUrl: trailerVideoUrl.trim(),
+        girlfriendTrailerUrl: girlfriendTrailerUrl.trim(),
+        boyfriendTrailerUrl: boyfriendTrailerUrl.trim(),
+        usTrailerUrl: usTrailerUrl.trim(),
         boyfriendProfileImage: boyfriendProfileImage.trim(),
         girlfriendProfileImage: girlfriendProfileImage.trim(),
         usProfileImage: usProfileImage.trim(),
@@ -1162,7 +1183,7 @@ export default function AdminMediaSettings({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center p-2 sm:p-4 md:p-6" id="editor-dashboard-modal-outer">
+    <div className="fixed inset-0 z-[500] flex items-center justify-center p-0 sm:p-4 md:p-6" id="editor-dashboard-modal-outer">
       {/* Backdrop */}
       <motion.div 
         initial={{ opacity: 0 }}
@@ -1174,24 +1195,24 @@ export default function AdminMediaSettings({
 
       {/* Main Panel Content Box */}
       <motion.div
-        initial={{ scale: 0.96, opacity: 0, y: 15 }}
+        initial={{ scale: 0.98, opacity: 0, y: 10 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.96, opacity: 0, y: 15 }}
-        className="relative bg-zinc-900 border border-white/10 w-full max-w-5xl h-[95vh] sm:h-auto sm:max-h-[92vh] rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col z-50 text-white font-sans"
+        exit={{ scale: 0.98, opacity: 0, y: 10 }}
+        className="relative bg-zinc-900 border-0 sm:border border-white/10 w-full max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[92vh] rounded-none sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col z-50 text-white font-sans"
         id="editor-dashboard-modal-inner"
       >
         {/* Upper Header Control Area */}
-        <div className="p-4 sm:p-5 md:p-6 pr-12 sm:pr-14 md:pr-16 border-b border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 bg-zinc-950/40 relative">
+        <div className="p-3.5 sm:p-5 md:p-6 pr-12 sm:pr-14 md:pr-16 border-b border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:gap-4 bg-zinc-950/40 relative shrink-0">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
               <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-accent animate-spin-slow" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-sm sm:text-base md:text-lg font-black tracking-tight text-white flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                <span>STUDIO PRODUCTION STUDIO</span>
-                <span className="text-[8px] sm:text-[9px] bg-accent/20 text-accent font-black uppercase tracking-wider px-2 py-0.5 rounded">All-Devices Sync</span>
+              <h2 className="text-xs sm:text-base md:text-lg font-black tracking-tight text-white flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <span>STUDIO PRODUCTION</span>
+                <span className="text-[7.5px] sm:text-[9px] bg-accent/20 text-accent font-black uppercase tracking-wider px-1.5 sm:px-2 py-0.5 rounded">All-Devices Sync</span>
               </h2>
-              <p className="text-[10px] sm:text-[11px] text-zinc-400 line-clamp-1 sm:line-clamp-none">Add local media or URL sequences up to 10,000 items, configure captions, and edit existing rows directly.</p>
+              <p className="text-[9.5px] sm:text-[11px] text-zinc-400 line-clamp-1 sm:line-clamp-none">Add local media or URL sequences up to 10,000 items, configure captions, and edit existing rows directly.</p>
             </div>
           </div>
           
@@ -1200,15 +1221,15 @@ export default function AdminMediaSettings({
             type="button"
             onClick={onClose}
             aria-label="Close settings"
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 rounded-full hover:bg-white/10 border border-transparent hover:border-white/15 text-zinc-400 hover:text-white transition-all cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center"
+            className="absolute top-2.5 right-2.5 sm:top-4 sm:right-4 p-2 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 sm:border-transparent text-zinc-300 hover:text-white transition-all cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center z-10"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Navigation Selector Sections */}
-        <div className="bg-zinc-950 px-2.5 sm:px-6 py-2.5 sm:py-3.5 border-b border-white/5 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5 sm:gap-3 overflow-hidden">
-          <div className="flex overflow-x-auto no-scrollbar gap-1 sm:gap-1.5 bg-zinc-900/60 p-1 sm:p-1.5 rounded-xl border border-white/5 max-w-full touch-pan-x">
+        <div className="bg-zinc-950 px-2 sm:px-6 py-2 sm:py-3.5 border-b border-white/5 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2 sm:gap-3 shrink-0 overflow-hidden">
+          <div className="flex overflow-x-auto no-scrollbar gap-1 sm:gap-1.5 bg-zinc-900/60 p-1 sm:p-1.5 rounded-xl border border-white/5 max-w-full touch-pan-x shrink-0">
             <button
               type="button"
               onClick={() => setActiveTab('create')}
@@ -1296,7 +1317,7 @@ export default function AdminMediaSettings({
         </div>
 
         {/* Tab content area container */}
-        <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 md:p-8 space-y-5 sm:space-y-6">
+        <div className="flex-1 overflow-y-auto overscroll-contain touch-pan-y p-3 sm:p-5 md:p-8 space-y-4 sm:space-y-6">
 
           {/* TAB 1: CREATE SLIDESHOW CARD */}
           {activeTab === 'create' && (
@@ -2683,45 +2704,145 @@ export default function AdminMediaSettings({
                 </p>
               </div>
 
-              {/* SECTION A: TRAILER VIDEO */}
-              <div className="bg-zinc-950/60 p-5 rounded-lg border border-white/5 space-y-4">
-                <h4 className="text-xs font-black uppercase tracking-widest text-[#ff2d55] flex items-center gap-2">
-                  <Film className="w-4 h-4" /> 1. Customizable Cinematic Trailer
-                </h4>
+              {/* SECTION A: PER-PROFILE TRAILER VIDEOS */}
+              <div className="bg-zinc-950/60 p-5 rounded-lg border border-white/5 space-y-5">
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-[#ff2d55] flex items-center gap-2">
+                    <Film className="w-4 h-4" /> 1. Profile-Specific Cinematic Trailers
+                  </h4>
+                  <p className="text-[11px] text-zinc-400 mt-1">
+                    Allow different profiles (Girlfriend, Boyfriend, Us) to experience their own unique cinematic trailer before entering the home theater.
+                  </p>
+                </div>
                 
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
-                      Trailer Video URL
-                    </label>
-                    <input 
-                      type="text" 
-                      value={trailerVideoUrl}
-                      onChange={(e) => setTrailerVideoUrl(e.target.value)}
-                      placeholder="/videos/8.mp4 or any https link"
-                      className="w-full bg-zinc-900 border border-white/10 p-3 rounded text-xs text-white focus:outline-none focus:border-accent"
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Girlfriend Profile Trailer */}
+                  <div className="border border-white/10 p-4 rounded bg-zinc-900/60 space-y-3 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-accent tracking-widest block border-b border-white/5 pb-1 mb-2">
+                        Milli (Girlfriend Trailer)
+                      </span>
+                      <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">
+                        Video URL (.mp4)
+                      </label>
+                      <input 
+                        type="text" 
+                        value={girlfriendTrailerUrl}
+                        onChange={(e) => setGirlfriendTrailerUrl(e.target.value)}
+                        placeholder="/videos/8.mp4 or web URL"
+                        className="w-full bg-zinc-950 border border-white/10 p-2 rounded text-xs text-white focus:outline-none focus:border-accent"
+                      />
+                    </div>
+
+                    <div>
+                      <span className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">
+                        Or Upload (.mp4)
+                      </span>
+                      <label className="flex flex-col items-center justify-center border-2 border-dashed border-white/10 hover:border-accent rounded p-3 text-center cursor-pointer hover:bg-white/5 transition-all">
+                        <Upload className="w-4 h-4 text-zinc-400 mb-1" />
+                        <span className="text-[10px] font-bold text-zinc-300">Upload Milli's Clip</span>
+                        <input 
+                          type="file" 
+                          accept="video/mp4" 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleConfigLocalUpload(file, 'girlfriend_trailer');
+                          }}
+                          className="hidden" 
+                        />
+                      </label>
+                    </div>
                   </div>
 
-                  <div>
-                    <span className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">
-                      Or Upload Trailer File (.mp4)
-                    </span>
-                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-white/10 hover:border-accent rounded p-4 text-center cursor-pointer hover:bg-white/5 transition-all animate-fadeIn">
-                      <Upload className="w-5 h-5 text-zinc-500 mb-2" />
-                      <span className="text-xs font-bold text-zinc-300">Upload video clip</span>
-                      <span className="text-[10px] text-zinc-500 mt-0.5">Supports standard MP4 format</span>
+                  {/* Boyfriend Profile Trailer */}
+                  <div className="border border-white/10 p-4 rounded bg-zinc-900/60 space-y-3 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-blue-400 tracking-widest block border-b border-white/5 pb-1 mb-2">
+                        Sbu (Boyfriend Trailer)
+                      </span>
+                      <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">
+                        Video URL (.mp4)
+                      </label>
                       <input 
-                        type="file" 
-                        accept="video/mp4" 
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleConfigLocalUpload(file, 'trailer');
-                        }}
-                        className="hidden" 
+                        type="text" 
+                        value={boyfriendTrailerUrl}
+                        onChange={(e) => setBoyfriendTrailerUrl(e.target.value)}
+                        placeholder="/videos/8.mp4 or web URL"
+                        className="w-full bg-zinc-950 border border-white/10 p-2 rounded text-xs text-white focus:outline-none focus:border-accent"
                       />
-                    </label>
+                    </div>
+
+                    <div>
+                      <span className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">
+                        Or Upload (.mp4)
+                      </span>
+                      <label className="flex flex-col items-center justify-center border-2 border-dashed border-white/10 hover:border-blue-400 rounded p-3 text-center cursor-pointer hover:bg-white/5 transition-all">
+                        <Upload className="w-4 h-4 text-zinc-400 mb-1" />
+                        <span className="text-[10px] font-bold text-zinc-300">Upload Sbu's Clip</span>
+                        <input 
+                          type="file" 
+                          accept="video/mp4" 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleConfigLocalUpload(file, 'boyfriend_trailer');
+                          }}
+                          className="hidden" 
+                        />
+                      </label>
+                    </div>
                   </div>
+
+                  {/* Us Together Profile Trailer */}
+                  <div className="border border-white/10 p-4 rounded bg-zinc-900/60 space-y-3 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-purple-400 tracking-widest block border-b border-white/5 pb-1 mb-2">
+                        Us Together (Shared Trailer)
+                      </span>
+                      <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">
+                        Video URL (.mp4)
+                      </label>
+                      <input 
+                        type="text" 
+                        value={usTrailerUrl}
+                        onChange={(e) => setUsTrailerUrl(e.target.value)}
+                        placeholder="/videos/8.mp4 or web URL"
+                        className="w-full bg-zinc-950 border border-white/10 p-2 rounded text-xs text-white focus:outline-none focus:border-accent"
+                      />
+                    </div>
+
+                    <div>
+                      <span className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">
+                        Or Upload (.mp4)
+                      </span>
+                      <label className="flex flex-col items-center justify-center border-2 border-dashed border-white/10 hover:border-purple-400 rounded p-3 text-center cursor-pointer hover:bg-white/5 transition-all">
+                        <Upload className="w-4 h-4 text-zinc-400 mb-1" />
+                        <span className="text-[10px] font-bold text-zinc-300">Upload Us Clip</span>
+                        <input 
+                          type="file" 
+                          accept="video/mp4" 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleConfigLocalUpload(file, 'us_trailer');
+                          }}
+                          className="hidden" 
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fallback Global Trailer */}
+                <div className="pt-2 border-t border-white/5">
+                  <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">
+                    Global Fallback Trailer URL (Optional)
+                  </label>
+                  <input 
+                    type="text" 
+                    value={trailerVideoUrl}
+                    onChange={(e) => setTrailerVideoUrl(e.target.value)}
+                    placeholder="/videos/8.mp4"
+                    className="w-full bg-zinc-900 border border-white/10 p-2.5 rounded text-xs text-white focus:outline-none focus:border-accent"
+                  />
                 </div>
               </div>
 

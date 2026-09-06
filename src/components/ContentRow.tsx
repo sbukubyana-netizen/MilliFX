@@ -11,9 +11,18 @@ interface ContentRowProps {
   title: string;
   episodes: Episode[];
   onSelectEpisode: (episode: Episode) => void;
+  userStats?: { [key: string]: { views: number; likes: number } };
+  onView?: (id: string) => void;
 }
 
-export const ContentRow: React.FC<ContentRowProps> = ({ id, title, episodes, onSelectEpisode }) => {
+export const ContentRow: React.FC<ContentRowProps> = ({ 
+  id, 
+  title, 
+  episodes, 
+  onSelectEpisode,
+  userStats,
+  onView
+}) => {
   return (
     <div className="py-6 space-y-3" id={id}>
       <div className="px-6 md:px-12 flex items-center justify-between">
@@ -24,16 +33,30 @@ export const ContentRow: React.FC<ContentRowProps> = ({ id, title, episodes, onS
       
       <div className="relative group">
         <div className="flex gap-4 overflow-x-auto px-6 md:px-12 pb-6 no-scrollbar scroll-smooth">
-          {episodes.map((episode) => (
-            <EpisodeCard key={episode.id} episode={episode} onClick={() => onSelectEpisode(episode)} />
-          ))}
+          {episodes.map((episode) => {
+            const stats = userStats?.[episode.id] || { views: 0, likes: 0 };
+            return (
+              <EpisodeCard 
+                key={episode.id} 
+                episode={episode} 
+                stats={stats}
+                onView={() => onView?.(episode.id)}
+                onClick={() => onSelectEpisode(episode)} 
+              />
+            );
+          })}
         </div>
       </div>
     </div>
   );
 };
 
-const EpisodeCard: React.FC<{ episode: Episode; onClick: () => void }> = ({ episode, onClick }) => {
+const EpisodeCard: React.FC<{ 
+  episode: Episode; 
+  onClick: () => void;
+  stats?: { views: number; likes: number };
+  onView?: () => void;
+}> = ({ episode, onClick, stats = { views: 0, likes: 0 }, onView }) => {
   const isComingSoon = episode.images.length === 0;
   const totalSlides = episode.images.length;
   
@@ -233,9 +256,15 @@ const EpisodeCard: React.FC<{ episode: Episode; onClick: () => void }> = ({ epis
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 pointer-events-none" />
 
-        {/* Top Floating Badges: Slide Indicator & Mode */}
+        {/* Top Floating Badges: Views, Slide Indicator & Mode */}
         <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between pointer-events-none z-30">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Real View Count Badge (Starts at 0, only increments when fullscreen is clicked) */}
+            <div className="bg-black/75 backdrop-blur-md px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest text-white border border-white/10 shadow flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+              <span>{stats.views || 0} {(stats.views || 0) === 1 ? 'View' : 'Views'}</span>
+            </div>
+
             {isVideo ? (
               <span className="bg-red-600/90 backdrop-blur-md px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest text-white shadow">
                 Video
@@ -257,10 +286,11 @@ const EpisodeCard: React.FC<{ episode: Episode; onClick: () => void }> = ({ epis
             type="button"
             onClick={(e) => {
               e.stopPropagation();
+              onView?.();
               onClick();
             }}
             className="pointer-events-auto p-1.5 rounded-full bg-black/60 hover:bg-accent text-white backdrop-blur-md border border-white/15 transition-all cursor-pointer hover:scale-110 shadow"
-            title="Open in Cinema Mode"
+            title="Open Fullscreen"
           >
             <Maximize2 className="w-3 h-3" />
           </button>
@@ -395,6 +425,7 @@ const EpisodeCard: React.FC<{ episode: Episode; onClick: () => void }> = ({ epis
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
+                onView?.();
                 onClick();
               }}
               className="bg-accent text-white hover:opacity-90 text-[9px] font-black px-2.5 py-1 rounded uppercase tracking-wider transition-all cursor-pointer shadow"

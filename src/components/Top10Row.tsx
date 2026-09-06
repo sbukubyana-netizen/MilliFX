@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Play, Pause, Plus, Heart, Volume2, Volume1, VolumeX, 
   Gauge, Maximize2 
@@ -11,10 +11,11 @@ interface Top10RowProps {
   items: Memory[];
   userStats: { [key: string]: { views: number, likes: number } };
   onLike: (id: string) => void;
+  onView?: (id: string) => void;
   onSelect: (item: Memory, collection: Memory[]) => void;
 }
 
-export const Top10Row: React.FC<Top10RowProps> = ({ id, items, userStats, onLike, onSelect }) => {
+export const Top10Row: React.FC<Top10RowProps> = ({ id, items, userStats, onLike, onView, onSelect }) => {
   return (
     <div className="py-12 space-y-3" id={id}>
       <div className="px-6 md:px-12 flex items-center justify-between">
@@ -24,12 +25,14 @@ export const Top10Row: React.FC<Top10RowProps> = ({ id, items, userStats, onLike
           </h3>
           <p className="text-text-dim text-[9px] sm:text-[10px] font-bold uppercase tracking-widest mt-0.5">Based on your recent binge-watching & likes</p>
         </div>
-        <button 
-          onClick={() => onSelect(items[0], items)}
-          className="text-accent text-[9px] sm:text-[10px] font-black uppercase tracking-widest hover:underline cursor-pointer"
-        >
-          Play the Hits &#8250;
-        </button>
+        {items.length > 0 && (
+          <button 
+            onClick={() => onSelect(items[0], items)}
+            className="text-accent text-[9px] sm:text-[10px] font-black uppercase tracking-widest hover:underline cursor-pointer"
+          >
+            Play the Hits &#8250;
+          </button>
+        )}
       </div>
       <div className="flex gap-12 overflow-x-auto px-6 md:px-12 py-8 no-scrollbar items-center">
         {items.map((item, index) => {
@@ -45,6 +48,7 @@ export const Top10Row: React.FC<Top10RowProps> = ({ id, items, userStats, onLike
               stats={stats}
               isLiked={isLiked}
               onLike={() => onLike(item.id)}
+              onView={() => onView?.(item.id)}
               onSelect={() => onSelect(item, items)}
             />
           );
@@ -71,6 +75,7 @@ interface Top10CardProps {
   stats: { views: number; likes: number };
   isLiked: boolean;
   onLike: () => void;
+  onView?: () => void;
   onSelect: () => void;
 }
 
@@ -80,6 +85,7 @@ const Top10Card: React.FC<Top10CardProps> = ({
   stats,
   isLiked,
   onLike,
+  onView,
   onSelect,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -151,6 +157,9 @@ const Top10Card: React.FC<Top10CardProps> = ({
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
+  // Real view count starting at 0, incremented only when full screen is clicked
+  const totalViews = stats.views || 0;
+
   return (
     <motion.div
       whileHover={{ scale: 1.05, zIndex: 50 }}
@@ -178,7 +187,10 @@ const Top10Card: React.FC<Top10CardProps> = ({
       
       {/* Card Content */}
       <div 
-        onClick={onSelect}
+        onClick={() => {
+          onView?.();
+          onSelect();
+        }}
         className="relative z-10 ml-6 md:ml-12 rounded-lg overflow-hidden shadow-2xl bg-card-bg aspect-video border border-border-subtle group-hover:border-accent/60 transition-all duration-500 flex flex-col"
       >
         {/* Cover image: ALWAYS visible until hovered */}
@@ -219,8 +231,9 @@ const Top10Card: React.FC<Top10CardProps> = ({
         
         {/* Stats Badge */}
         <div className="absolute top-2 left-2 flex items-center gap-1 z-20">
-          <div className="bg-black/70 backdrop-blur-md px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest text-white border border-white/10 shadow">
-            {stats.views} Views
+          <div className="bg-black/75 backdrop-blur-md px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest text-white border border-white/10 shadow flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+            <span>{totalViews} {totalViews === 1 ? 'View' : 'Views'}</span>
           </div>
           {hasVideo && (
             <div className="bg-red-600/90 backdrop-blur-md px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest text-white shadow">
@@ -234,6 +247,7 @@ const Top10Card: React.FC<Top10CardProps> = ({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
+            onView?.();
             onSelect();
           }}
           className="absolute top-2 right-2 z-20 p-1.5 rounded-full bg-black/60 hover:bg-accent text-white backdrop-blur-md border border-white/15 transition-all opacity-0 group-hover:opacity-100 shadow"
@@ -295,6 +309,7 @@ const Top10Card: React.FC<Top10CardProps> = ({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  onView?.();
                   if (hasVideo) {
                     setIsPlaying(!isPlaying);
                   } else {
@@ -312,6 +327,7 @@ const Top10Card: React.FC<Top10CardProps> = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   onLike();
+                  onView?.();
                 }}
                 className={`w-7 h-7 rounded-full border ${isLiked ? 'bg-accent/20 border-accent' : 'border-zinc-400'} text-white flex items-center justify-center hover:border-accent transition-colors shadow`}
                 title="Favorite"
